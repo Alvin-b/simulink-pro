@@ -412,7 +412,7 @@ function PotentiometerModel({ component }: { component: any }) {
           <meshStandardMaterial color="#336699" roughness={0.6} />
         </mesh>
         {/* Knob */}
-        <group ref={knobRef} position={[0, 0.06, 0]}>
+        <group ref={knobRef as any} position={[0, 0.06, 0]}>
           <mesh>
             <cylinderGeometry args={[0.05, 0.05, 0.04, 12]} />
             <meshStandardMaterial color="#ddd" metalness={0.8} roughness={0.2} />
