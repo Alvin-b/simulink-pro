@@ -103,12 +103,12 @@ function SimulationScene() {
           <meshStandardMaterial color="#0066cc" roughness={0.6} />
         </mesh>
         {/* Transducers */}
-        <mesh position={[-0.18, 0.06, 0.15]} castShadow>
-          <cylinderGeometry args={[0.12, 0.12, 0.08, 16]} rotation={[Math.PI / 2, 0, 0]} />
+        <mesh position={[-0.18, 0.06, 0.15]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+          <cylinderGeometry args={[0.12, 0.12, 0.08, 16]} />
           <meshStandardMaterial color="#c0c0c0" roughness={0.2} metalness={0.8} />
         </mesh>
-        <mesh position={[0.18, 0.06, 0.15]} castShadow>
-          <cylinderGeometry args={[0.12, 0.12, 0.08, 16]} rotation={[Math.PI / 2, 0, 0]} />
+        <mesh position={[0.18, 0.06, 0.15]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+          <cylinderGeometry args={[0.12, 0.12, 0.08, 16]} />
           <meshStandardMaterial color="#c0c0c0" roughness={0.2} metalness={0.8} />
         </mesh>
       </group>
