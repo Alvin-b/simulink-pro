@@ -151,8 +151,8 @@ function ResistorModel({ component }: { component: any }) {
   return (
     <RigidBody type="dynamic" position={component.position} mass={0.001}>
       <group onClick={(e) => { e.stopPropagation(); select(component.id); }}>
-        <mesh castShadow>
-          <cylinderGeometry args={[0.05, 0.05, 0.3, 8]} rotation={[0, 0, Math.PI / 2]} />
+        <mesh castShadow rotation={[0, 0, Math.PI / 2]}>
+          <cylinderGeometry args={[0.05, 0.05, 0.3, 8]} />
           <meshStandardMaterial color="#d4a574" roughness={0.8} />
         </mesh>
         {/* Color bands */}
