@@ -1,13 +1,14 @@
 import { useState } from "react";
 import {
-  Cpu, Zap, Gauge, Radio, Thermometer, Eye, Move, Battery,
-  ChevronDown, ChevronRight, Search, Grip
+  Cpu, Zap, Gauge, Radio, Eye, Move, Battery,
+  ChevronDown, ChevronRight, Search, Grip, Plus
 } from "lucide-react";
+import { useSimulationStore, ComponentType } from "@/stores/simulationStore";
 
 interface ComponentCategory {
   name: string;
   icon: React.ReactNode;
-  items: { name: string; description: string; pins?: number }[];
+  items: { name: string; description: string; type: ComponentType }[];
 }
 
 const categories: ComponentCategory[] = [
@@ -15,89 +16,48 @@ const categories: ComponentCategory[] = [
     name: "Microcontrollers",
     icon: <Cpu className="w-4 h-4" />,
     items: [
-      { name: "Arduino Uno R3", description: "ATmega328P, 14 GPIO", pins: 14 },
-      { name: "ESP32-WROOM", description: "Dual-core, WiFi+BT", pins: 38 },
-      { name: "STM32F103", description: "ARM Cortex-M3, 72MHz", pins: 37 },
-      { name: "Raspberry Pi Pico", description: "RP2040, Dual-core", pins: 26 },
-      { name: "ATtiny85", description: "8-bit AVR, 8 pins", pins: 8 },
-    ],
-  },
-  {
-    name: "Microcomputers",
-    icon: <Cpu className="w-4 h-4" />,
-    items: [
-      { name: "Raspberry Pi 4B", description: "BCM2711, 4GB RAM" },
-      { name: "Jetson Nano", description: "NVIDIA, 128 CUDA cores" },
-      { name: "BeagleBone Black", description: "AM335x, 512MB" },
+      { name: "Arduino Uno R3", description: "ATmega328P, 14 GPIO", type: "arduino-uno" },
     ],
   },
   {
     name: "Sensors",
     icon: <Eye className="w-4 h-4" />,
     items: [
-      { name: "HC-SR04", description: "Ultrasonic distance" },
-      { name: "DHT22", description: "Temp & humidity" },
-      { name: "MPU6050", description: "6-axis IMU" },
-      { name: "BMP280", description: "Barometric pressure" },
-      { name: "IR Proximity", description: "Infrared obstacle" },
-      { name: "LDR Module", description: "Light dependent resistor" },
-      { name: "PIR Motion", description: "Passive infrared" },
-      { name: "HX711 Load Cell", description: "Weight/force sensor" },
+      { name: "HC-SR04", description: "Ultrasonic distance", type: "hc-sr04" },
+      { name: "DHT22", description: "Temp & humidity", type: "dht22" },
     ],
   },
   {
     name: "Actuators",
     icon: <Move className="w-4 h-4" />,
     items: [
-      { name: "SG90 Servo", description: "180° micro servo" },
-      { name: "MG996R Servo", description: "High torque servo" },
-      { name: "NEMA 17 Stepper", description: "Bipolar stepper" },
-      { name: "DC Motor", description: "6V brushed motor" },
-      { name: "L298N Driver", description: "Dual H-bridge" },
-      { name: "Solenoid Valve", description: "12V electromagnetic" },
+      { name: "SG90 Servo", description: "180° micro servo", type: "servo" },
+      { name: "DC Motor", description: "6V brushed motor", type: "dc-motor" },
+      { name: "Piezo Buzzer", description: "Active buzzer", type: "buzzer" },
     ],
   },
   {
-    name: "Communication",
-    icon: <Radio className="w-4 h-4" />,
+    name: "Input",
+    icon: <Gauge className="w-4 h-4" />,
     items: [
-      { name: "nRF24L01", description: "2.4GHz RF module" },
-      { name: "HC-05 Bluetooth", description: "Serial Bluetooth" },
-      { name: "SIM800L GSM", description: "Cellular module" },
-      { name: "LoRa SX1276", description: "Long range radio" },
+      { name: "Push Button", description: "Momentary switch", type: "button" },
+      { name: "Potentiometer", description: "10kΩ variable", type: "potentiometer" },
     ],
   },
   {
-    name: "Power",
-    icon: <Battery className="w-4 h-4" />,
-    items: [
-      { name: "LM7805 Regulator", description: "5V linear reg" },
-      { name: "LiPo 3.7V 1000mAh", description: "Battery cell" },
-      { name: "Buck Converter", description: "DC-DC step down" },
-      { name: "Solar Panel 6V", description: "Photovoltaic cell" },
-    ],
-  },
-  {
-    name: "Passive Components",
+    name: "Passive",
     icon: <Zap className="w-4 h-4" />,
     items: [
-      { name: "Resistor", description: "1/4W through-hole" },
-      { name: "Capacitor", description: "Ceramic/Electrolytic" },
-      { name: "LED", description: "5mm, various colors" },
-      { name: "Diode 1N4007", description: "Rectifier diode" },
-      { name: "Transistor 2N2222", description: "NPN BJT" },
-      { name: "Relay Module", description: "5V SPDT relay" },
+      { name: "LED", description: "5mm, various colors", type: "led" },
+      { name: "Resistor", description: "1/4W 220Ω", type: "resistor" },
+      { name: "Relay Module", description: "5V SPDT relay", type: "relay" },
     ],
   },
   {
     name: "Display & I/O",
     icon: <Gauge className="w-4 h-4" />,
     items: [
-      { name: "OLED 0.96\" SSD1306", description: "128×64 I2C display" },
-      { name: "LCD 16x2 I2C", description: "Character LCD" },
-      { name: "4x4 Keypad", description: "Matrix keypad" },
-      { name: "Rotary Encoder", description: "Incremental encoder" },
-      { name: "Buzzer", description: "Piezo active buzzer" },
+      { name: "LCD 16x2 I2C", description: "Character LCD", type: "lcd-16x2" },
     ],
   },
 ];
@@ -107,7 +67,12 @@ export function ComponentLibrary() {
   const [expanded, setExpanded] = useState<Record<string, boolean>>({
     Microcontrollers: true,
     Sensors: true,
+    Actuators: true,
+    Input: true,
+    Passive: true,
   });
+  const addComponent = useSimulationStore((s) => s.addComponent);
+  const log = useSimulationStore((s) => s.log);
 
   const toggle = (name: string) =>
     setExpanded((prev) => ({ ...prev, [name]: !prev[name] }));
@@ -141,7 +106,7 @@ export function ComponentLibrary() {
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto scrollbar-thin">
+      <div className="flex-1 overflow-y-auto">
         {filtered.map((cat) => (
           <div key={cat.name}>
             <button
@@ -165,8 +130,8 @@ export function ComponentLibrary() {
                 {cat.items.map((item) => (
                   <div
                     key={item.name}
-                    draggable
-                    className="flex items-center gap-2 mx-2 px-2 py-1.5 rounded-md text-xs cursor-grab hover:bg-secondary/80 transition-colors group"
+                    className="flex items-center gap-2 mx-2 px-2 py-1.5 rounded-md text-xs cursor-pointer hover:bg-secondary/80 transition-colors group"
+                    onClick={() => addComponent(item.type)}
                   >
                     <Grip className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                     <div className="flex-1 min-w-0">
@@ -175,6 +140,7 @@ export function ComponentLibrary() {
                         {item.description}
                       </p>
                     </div>
+                    <Plus className="w-3 h-3 text-primary opacity-0 group-hover:opacity-100 transition-opacity" />
                   </div>
                 ))}
               </div>
