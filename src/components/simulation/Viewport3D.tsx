@@ -345,8 +345,6 @@ function SimulationScene({ theme }: { theme: EnvironmentTheme }) {
         rotateSpeed={0.6}
       />
 
-      <EnvironmentScene theme={theme} />
-
       {isIndoor && (
         <Grid
           args={[100, 100]}
@@ -357,6 +355,7 @@ function SimulationScene({ theme }: { theme: EnvironmentTheme }) {
       )}
 
       <Physics gravity={[0, -gravity, 0]}>
+        <EnvironmentScene theme={theme} />
         {components.map((comp) => (
           <SimComponentRenderer key={comp.id} component={comp} />
         ))}
