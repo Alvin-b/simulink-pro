@@ -1,3 +1,4 @@
+import { RealisticArduinoUno, RealisticESP32, RealisticHCSR04, RealisticSG90, RealisticLED, RealisticResistor } from "./RealisticComponents";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, Grid, PerspectiveCamera, Line, Text } from "@react-three/drei";
 import { Physics, RigidBody, CuboidCollider } from "@react-three/rapier";
@@ -239,13 +240,8 @@ function WireRenderer() {
 
 function SimComponentRenderer({ component }: { component: any }) {
   switch (component.type) {
-    case "arduino-uno": case "arduino-mega": case "arduino-nano": return <ArduinoModel component={component} />;
     case "esp32-wroom": case "esp8266-nodemcu": return <ESP32Model component={component} />;
     case "raspberry-pi-4b": case "raspberry-pi-zero": return <RaspberryPi4B component={component} />;
-    case "led": case "led-rgb": return <LedModel component={component} />;
-    case "resistor": return <ResistorModel component={component} />;
-    case "servo-sg90": case "servo-mg996r": return <ServoModel component={component} />;
-    case "hc-sr04": return <UltrasonicModel component={component} />;
     case "robot-2wd-car": return <Robot2WDCar component={component} />;
     case "robot-4wd-car": case "robot-tank-tracks": return <RobotTank component={component} />;
     case "robot-arm-4dof": case "robot-arm-6dof": return <RobotArm4DOF component={component} />;

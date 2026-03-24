@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
+<title>SimForge Mobile</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  :root {
+    --bg: #0a0d12; --card: #0d1117; --border: #1e2a3a;
+    --primary: #00d2ff; --text: #c8d6e5; --muted: #4a6a8a;
+    --green: #22c55e; --red: #ef4444; --yellow: #f59e0b;
+    --surface: #111827;
+  }
+  html, body { background: var(--bg); color: var(--text); font-family: 'JetBrains Mono', monospace, sans-serif; height: 100%; overflow: hidden; }
+  body { display: flex; flex-direction: column; }
+
+  /* ── Top bar ── */
+  .topbar { display:flex; align-items:center; justify-content:space-between; padding:12px 16px; background:var(--card); border-bottom:1px solid var(--border); flex-shrink:0; }
+  .logo { font-size:15px; font-weight:700; letter-spacing:0.05em; }
+  .logo span { color:var(--primary); }
+  .status-dot { width:8px; height:8px; border-radius:50%; background:var(--red); transition:background .3s; }
+  .status-dot.connected { background:var(--green); box-shadow:0 0 8px #22c55e; }
+  .status-label { font-size:10px; color:var(--muted); margin-left:6px; }
+  .status-row { display:flex; align-items:center; gap:4px; }
+
+  /* ── Tabs ── */
+  .tabs { display:flex; background:var(--card); border-bottom:1px solid var(--border); flex-shrink:0; }
+  .tab { flex:1; padding:10px 4px; text-align:center; font-size:10px; font-weight:600; letter-spacing:0.06em; text-transform:uppercase; cursor:pointer; border-bottom:2px solid transparent; color:var(--muted); transition:all .15s; }
+  .tab.active { color:var(--primary); border-bottom-color:var(--primary); }
+
+  /* ── Scroll content ── */
+  .content { flex:1; overflow-y:auto; padding:12px; }
+
+  /* ── Connect panel ── */
+  .connect-panel { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:12px; }
+  .connect-panel h3 { font-size:11px; color:var(--muted); letter-spacing:.1em; text-transform:uppercase; margin-bottom:8px; }
+  .input-row { display:flex; gap:8px; }
+  .input-row input { flex:1; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:10px 12px; color:var(--text); font-family:inherit; font-size:12px; outline:none; }
+  .input-row input:focus { border-color:var(--primary); }
+  .btn { padding:10px 16px; border-radius:8px; border:1px solid var(--primary); background:rgba(0,210,255,0.15); color:var(--primary); font-family:inherit; font-size:12px; font-weight:600; cursor:pointer; transition:all .15s; white-space:nowrap; }
+  .btn:active { transform:scale(0.97); background:rgba(0,210,255,0.25); }
+  .btn.red { border-color:var(--red); background:rgba(239,68,68,0.15); color:var(--red); }
+  .btn.green { border-color:var(--green); background:rgba(34,197,94,0.15); color:var(--green); }
+
+  /* ── Sensor cards ── */
+  .sensor-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px; }
+  .sensor-card { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:12px; }
+  .sensor-card .label { font-size:9px; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; margin-bottom:4px; }
+  .sensor-card .value { font-size:22px; font-weight:700; color:var(--primary); line-height:1; }
+  .sensor-card .unit  { font-size:10px; color:var(--muted); margin-top:2px; }
+  .sensor-card.alert { border-color:rgba(239,68,68,0.5); background:rgba(239,68,68,0.05); }
+  .sensor-card.alert .value { color:var(--red); }
+
+  /* ── Joystick ── */
+  .joystick-container { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:16px; margin-bottom:12px; }
+  .joystick-container h3 { font-size:11px; color:var(--muted); letter-spacing:.1em; text-transform:uppercase; margin-bottom:12px; }
+  .joystick-wrap { position:relative; display:flex; justify-content:center; }
+  #joystick-zone { width:180px; height:180px; border-radius:50%; background:var(--surface); border:2px solid var(--border); position:relative; cursor:pointer; margin:0 auto; touch-action:none; }
+  #joystick-thumb { width:56px; height:56px; border-radius:50%; background:linear-gradient(135deg,var(--primary),#0099cc); position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); transition:box-shadow .15s; box-shadow:0 0 12px rgba(0,210,255,0.4); }
+  #joystick-thumb.active { box-shadow:0 0 20px rgba(0,210,255,0.6); }
+  .joystick-info { display:flex; justify-content:space-between; margin-top:8px; font-size:10px; color:var(--muted); }
+
+  /* ── D-pad ── */
+  .dpad { display:grid; grid-template-columns:repeat(3,48px); grid-template-rows:repeat(3,48px); gap:4px; margin:0 auto; width:fit-content; }
+  .dpad-btn { width:48px; height:48px; background:var(--surface); border:1px solid var(--border); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:18px; cursor:pointer; user-select:none; transition:all .1s; }
+  .dpad-btn:active, .dpad-btn.pressed { background:rgba(0,210,255,0.2); border-color:var(--primary); transform:scale(0.95); }
+  .dpad-center { font-size:12px; color:var(--muted); }
+
+  /* ── Speed slider ── */
+  .slider-row { display:flex; align-items:center; gap:10px; margin-top:10px; }
+  .slider-row label { font-size:10px; color:var(--muted); width:50px; }
+  .slider-row input[type=range] { flex:1; -webkit-appearance:none; height:4px; border-radius:2px; background:var(--border); outline:none; }
+  .slider-row input[type=range]::-webkit-slider-thumb { -webkit-appearance:none; width:18px; height:18px; border-radius:50%; background:var(--primary); cursor:pointer; }
+  .slider-val { font-size:11px; color:var(--primary); font-weight:700; width:30px; text-align:right; }
+
+  /* ── Quick commands ── */
+  .cmd-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:12px; }
+  .cmd-btn { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:14px 10px; text-align:center; cursor:pointer; transition:all .15s; }
+  .cmd-btn:active { transform:scale(0.97); border-color:var(--primary); background:rgba(0,210,255,0.08); }
+  .cmd-btn .cmd-icon { font-size:24px; margin-bottom:4px; }
+  .cmd-btn .cmd-label { font-size:10px; color:var(--muted); }
+
+  /* ── Serial log ── */
+  .serial-log { background:var(--card); border:1px solid var(--border); border-radius:10px; padding:10px; height:200px; overflow-y:auto; font-size:10px; font-family:monospace; }
+  .log-line { padding:2px 0; border-bottom:1px solid var(--border); }
+  .log-line.serial { color:var(--primary); }
+  .log-line.error { color:var(--red); }
+  .log-line.success { color:var(--green); }
+  .log-line.info { color:var(--muted); }
+  .log-time { color:var(--muted); margin-right:8px; }
+
+  /* ── IoT dashboard ── */
+  .iot-card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:14px; margin-bottom:10px; }
+  .iot-card-title { font-size:11px; color:var(--muted); text-transform:uppercase; letter-spacing:.08em; margin-bottom:10px; display:flex; align-items:center; gap:6px; }
+  .gauge { width:100%; height:8px; background:var(--surface); border-radius:4px; overflow:hidden; margin-top:4px; }
+  .gauge-fill { height:100%; border-radius:4px; transition:width .5s; }
+  .gauge-green { background:linear-gradient(90deg,#22c55e,#16a34a); }
+  .gauge-blue  { background:linear-gradient(90deg,#3b82f6,#1d4ed8); }
+  .gauge-red   { background:linear-gradient(90deg,#ef4444,#b91c1c); }
+  .gauge-yellow { background:linear-gradient(90deg,#f59e0b,#d97706); }
+  .metric-row { display:flex; align-items:center; justify-content:space-between; margin-bottom:8px; }
+  .metric-label { font-size:11px; color:var(--muted); }
+  .metric-value { font-size:13px; font-weight:700; color:var(--text); font-family:monospace; }
+
+  /* ── Toggle ── */
+  .toggle-row { display:flex; align-items:center; justify-content:space-between; padding:10px 0; border-bottom:1px solid var(--border); }
+  .toggle-row:last-child { border-bottom:none; }
+  .toggle-label { font-size:12px; color:var(--text); }
+  .toggle { position:relative; width:44px; height:24px; }
+  .toggle input { opacity:0; width:0; height:0; }
+  .toggle-slider { position:absolute; inset:0; background:var(--border); border-radius:24px; cursor:pointer; transition:.3s; }
+  .toggle-slider:before { content:""; position:absolute; height:18px; width:18px; left:3px; bottom:3px; background:var(--muted); border-radius:50%; transition:.3s; }
+  .toggle input:checked + .toggle-slider { background:rgba(0,210,255,0.3); border:1px solid var(--primary); }
+  .toggle input:checked + .toggle-slider:before { transform:translateX(20px); background:var(--primary); }
+
+  /* ── Notification ── */
+  .notif { position:fixed; top:16px; left:50%; transform:translateX(-50%); padding:10px 20px; border-radius:8px; font-size:12px; font-weight:600; z-index:999; pointer-events:none; opacity:0; transition:opacity .2s; border:1px solid; }
+  .notif.show { opacity:1; }
+  .notif.success { background:rgba(34,197,94,0.15); border-color:var(--green); color:var(--green); }
+  .notif.error   { background:rgba(239,68,68,0.15); border-color:var(--red); color:var(--red); }
+</style>
+</head>
+<body>
+
+<!-- Top bar -->
+<div class="topbar">
+  <div class="logo">SIM<span>FORGE</span> <span style="font-size:10px;color:var(--muted)">Mobile</span></div>
+  <div class="status-row">
+    <div class="status-dot" id="dot"></div>
+    <span class="status-label" id="status-label">Disconnected</span>
+  </div>
+</div>
+
+<!-- Tabs -->
+<div class="tabs">
+  <div class="tab active" onclick="showTab('control')" id="tab-control">🕹 Control</div>
+  <div class="tab" onclick="showTab('sensors')" id="tab-sensors">📡 Sensors</div>
+  <div class="tab" onclick="showTab('iot')" id="tab-iot">🌿 IoT</div>
+  <div class="tab" onclick="showTab('serial')" id="tab-serial">💻 Serial</div>
+</div>
+
+<!-- ══════════════ CONTROL TAB ══════════════ -->
+<div class="content" id="pane-control">
+
+  <!-- Connect -->
+  <div class="connect-panel">
+    <h3>🔌 SimForge Server</h3>
+    <div class="input-row" style="margin-bottom:8px">
+      <input type="text" id="server-addr" placeholder="207.126.167.78:8081" value="207.126.167.78:8081" />
+      <button class="btn" id="connect-btn" onclick="toggleConnect()">Connect</button>
+    </div>
+    <div style="font-size:10px;color:var(--muted)" id="ws-status">WebSocket: waiting...</div>
+  </div>
+
+  <!-- D-Pad -->
+  <div class="joystick-container">
+    <h3>🤖 Robot Control</h3>
+    <div class="dpad">
+      <div></div>
+      <div class="dpad-btn" id="btn-fwd" ontouchstart="btnDown('fwd')" ontouchend="btnUp('fwd')" onmousedown="btnDown('fwd')" onmouseup="btnUp('fwd')">▲</div>
+      <div></div>
+      <div class="dpad-btn" id="btn-left" ontouchstart="btnDown('left')" ontouchend="btnUp('left')" onmousedown="btnDown('left')" onmouseup="btnUp('left')">◀</div>
+      <div class="dpad-btn dpad-center" id="btn-stop" onclick="sendCmd('STOP')">■</div>
+      <div class="dpad-btn" id="btn-right" ontouchstart="btnDown('right')" ontouchend="btnUp('right')" onmousedown="btnDown('right')" onmouseup="btnUp('right')">▶</div>
+      <div></div>
+      <div class="dpad-btn" id="btn-back" ontouchstart="btnDown('back')" ontouchend="btnUp('back')" onmousedown="btnDown('back')" onmouseup="btnUp('back')">▼</div>
+      <div></div>
+    </div>
+
+    <!-- Speed -->
+    <div class="slider-row">
+      <label>Speed</label>
+      <input type="range" min="0" max="255" value="180" id="speed-slider" oninput="updateSpeed(this.value)" />
+      <span class="slider-val" id="speed-val">180</span>
+    </div>
+  </div>
+
+  <!-- Quick commands -->
+  <div class="cmd-grid">
+    <div class="cmd-btn" onclick="sendCmd('ARM_TOGGLE')">
+      <div class="cmd-icon">🦾</div>
+      <div class="cmd-label">Arm Toggle</div>
+    </div>
+    <div class="cmd-btn" onclick="sendCmd('DRONE_TAKEOFF')">
+      <div class="cmd-icon">🚁</div>
+      <div class="cmd-label">Drone Takeoff</div>
+    </div>
+    <div class="cmd-btn" onclick="sendCmd('DRONE_LAND')">
+      <div class="cmd-icon">⬇️</div>
+      <div class="cmd-label">Drone Land</div>
+    </div>
+    <div class="cmd-btn" onclick="sendCmd('RUN_SIM')">
+      <div class="cmd-icon">▶️</div>
+      <div class="cmd-label">Run Sim</div>
+    </div>
+    <div class="cmd-btn" onclick="sendCmd('PAUSE_SIM')">
+      <div class="cmd-icon">⏸️</div>
+      <div class="cmd-label">Pause</div>
+    </div>
+    <div class="cmd-btn" onclick="sendCmd('RESET_SIM')">
+      <div class="cmd-icon">🔄</div>
+      <div class="cmd-label">Reset</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ SENSORS TAB ══════════════ -->
+<div class="content" id="pane-sensors" style="display:none">
+  <div class="sensor-grid">
+    <div class="sensor-card" id="card-temp">
+      <div class="label">🌡 Temperature</div>
+      <div class="value" id="val-temp">--</div>
+      <div class="unit">°C</div>
+    </div>
+    <div class="sensor-card" id="card-hum">
+      <div class="label">💧 Humidity</div>
+      <div class="value" id="val-hum">--</div>
+      <div class="unit">%</div>
+    </div>
+    <div class="sensor-card" id="card-dist">
+      <div class="label">📡 Distance</div>
+      <div class="value" id="val-dist">--</div>
+      <div class="unit">cm</div>
+    </div>
+    <div class="sensor-card" id="card-light">
+      <div class="label">☀️ Light</div>
+      <div class="value" id="val-light">--</div>
+      <div class="unit">lux</div>
+    </div>
+    <div class="sensor-card" id="card-soil">
+      <div class="label">🌱 Soil</div>
+      <div class="value" id="val-soil">--</div>
+      <div class="unit">moisture</div>
+    </div>
+    <div class="sensor-card" id="card-motion">
+      <div class="label">👁 Motion</div>
+      <div class="value" id="val-motion">--</div>
+      <div class="unit">PIR</div>
+    </div>
+  </div>
+  <div class="sensor-grid">
+    <div class="sensor-card" id="card-ax">
+      <div class="label">⚡ Accel X</div>
+      <div class="value" id="val-ax">--</div>
+      <div class="unit">m/s²</div>
+    </div>
+    <div class="sensor-card" id="card-ay">
+      <div class="label">⚡ Accel Y</div>
+      <div class="value" id="val-ay">--</div>
+      <div class="unit">m/s²</div>
+    </div>
+    <div class="sensor-card" id="card-az">
+      <div class="label">⚡ Accel Z</div>
+      <div class="value" id="val-az">--</div>
+      <div class="unit">m/s²</div>
+    </div>
+    <div class="sensor-card" id="card-gps">
+      <div class="label">📍 GPS</div>
+      <div class="value" style="font-size:13px" id="val-gps">--</div>
+      <div class="unit">lat/lng</div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ IoT TAB ══════════════ -->
+<div class="content" id="pane-iot" style="display:none">
+
+  <!-- Garden monitor -->
+  <div class="iot-card">
+    <div class="iot-card-title">🌿 Garden Monitor</div>
+    <div class="metric-row">
+      <span class="metric-label">Soil Moisture</span>
+      <span class="metric-value" id="iot-soil">58%</span>
+    </div>
+    <div class="gauge"><div class="gauge-fill gauge-blue" id="gauge-soil" style="width:58%"></div></div>
+
+    <div class="metric-row" style="margin-top:10px">
+      <span class="metric-label">Temperature</span>
+      <span class="metric-value" id="iot-temp">24.3°C</span>
+    </div>
+    <div class="gauge"><div class="gauge-fill gauge-yellow" id="gauge-temp" style="width:48%"></div></div>
+
+    <div class="metric-row" style="margin-top:10px">
+      <span class="metric-label">Humidity</span>
+      <span class="metric-value" id="iot-hum">67%</span>
+    </div>
+    <div class="gauge"><div class="gauge-fill gauge-green" id="gauge-hum" style="width:67%"></div></div>
+
+    <div style="margin-top:12px;padding-top:10px;border-top:1px solid var(--border)">
+      <div class="toggle-row">
+        <span class="toggle-label">💧 Water Pump</span>
+        <label class="toggle"><input type="checkbox" id="pump-toggle" onchange="sendCmd('PUMP_'+this.checked)"><span class="toggle-slider"></span></label>
+      </div>
+      <div class="toggle-row">
+        <span class="toggle-label">☀️ Grow Light</span>
+        <label class="toggle"><input type="checkbox" id="light-toggle" onchange="sendCmd('GROWLIGHT_'+this.checked)"><span class="toggle-slider"></span></label>
+      </div>
+    </div>
+  </div>
+
+  <!-- Smart home -->
+  <div class="iot-card">
+    <div class="iot-card-title">🏠 Smart Home</div>
+    <div class="toggle-row">
+      <span class="toggle-label">💡 Living Room Lights</span>
+      <label class="toggle"><input type="checkbox" onchange="sendCmd('LIGHT_LR_'+this.checked)"><span class="toggle-slider"></span></label>
+    </div>
+    <div class="toggle-row">
+      <span class="toggle-label">💡 Bedroom Lights</span>
+      <label class="toggle"><input type="checkbox" onchange="sendCmd('LIGHT_BR_'+this.checked)"><span class="toggle-slider"></span></label>
+    </div>
+    <div class="toggle-row">
+      <span class="toggle-label">🌡 AC / Heating</span>
+      <label class="toggle"><input type="checkbox" onchange="sendCmd('HVAC_'+this.checked)"><span class="toggle-slider"></span></label>
+    </div>
+    <div class="toggle-row">
+      <span class="toggle-label">🔒 Door Lock</span>
+      <label class="toggle"><input type="checkbox" checked onchange="sendCmd('LOCK_'+this.checked)"><span class="toggle-slider"></span></label>
+    </div>
+    <div class="toggle-row">
+      <span class="toggle-label">🔔 Alarm</span>
+      <label class="toggle"><input type="checkbox" onchange="sendCmd('ALARM_'+this.checked)"><span class="toggle-slider"></span></label>
+    </div>
+  </div>
+
+  <!-- Energy -->
+  <div class="iot-card">
+    <div class="iot-card-title">⚡ Energy</div>
+    <div class="metric-row">
+      <span class="metric-label">Battery Voltage</span>
+      <span class="metric-value" id="iot-volt">12.4V</span>
+    </div>
+    <div class="gauge"><div class="gauge-fill gauge-green" id="gauge-volt" style="width:82%"></div></div>
+    <div class="metric-row" style="margin-top:10px">
+      <span class="metric-label">Current Draw</span>
+      <span class="metric-value" id="iot-curr">245mA</span>
+    </div>
+    <div class="gauge"><div class="gauge-fill gauge-yellow" id="gauge-curr" style="width:24%"></div></div>
+  </div>
+</div>
+
+<!-- ══════════════ SERIAL TAB ══════════════ -->
+<div class="content" id="pane-serial" style="display:none">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    <span style="font-size:11px;color:var(--muted)">SERIAL MONITOR</span>
+    <button class="btn" style="padding:5px 10px;font-size:10px" onclick="clearLog()">Clear</button>
+  </div>
+  <div class="serial-log" id="serial-log"></div>
+
+  <div style="margin-top:10px;display:flex;gap:8px">
+    <input type="text" id="serial-input" placeholder="Send command..."
+      style="flex:1;background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:10px 12px;color:var(--text);font-family:monospace;font-size:12px;outline:none"
+      onkeydown="if(event.key==='Enter') sendSerial()" />
+    <button class="btn" onclick="sendSerial()">Send</button>
+  </div>
+
+  <!-- Baud rate -->
+  <div style="display:flex;align-items:center;gap:8px;margin-top:8px">
+    <span style="font-size:10px;color:var(--muted)">Baud:</span>
+    <select id="baud-sel" style="background:var(--surface);border:1px solid var(--border);border-radius:6px;padding:4px 8px;color:var(--text);font-size:11px">
+      <option>9600</option><option selected>115200</option><option>57600</option>
+    </select>
+    <span style="font-size:10px;color:var(--muted);margin-left:auto" id="msg-count">0 messages</span>
+  </div>
+</div>
+
+<!-- Notification -->
+<div class="notif" id="notif"></div>
+
+<script>
+// ── State ──────────────────────────────────────────────────
+let ws = null;
+let connected = false;
+let speed = 180;
+let msgCount = 0;
+let sensorData = {};
+let pressedBtns = {};
+
+// ── WebSocket ──────────────────────────────────────────────
+function toggleConnect() {
+  if (connected) {
+    ws?.close();
+    setConnected(false);
+  } else {
+    const addr = document.getElementById('server-addr').value.trim();
+    const url  = `ws://${addr}`;
+    document.getElementById('ws-status').textContent = `Connecting to ${url}...`;
+    try {
+      ws = new WebSocket(url);
+      ws.onopen    = () => { setConnected(true); addLog('Connected to SimForge', 'success'); };
+      ws.onclose   = () => { setConnected(false); addLog('Disconnected', 'error'); };
+      ws.onerror   = () => { addLog('Connection error', 'error'); };
+      ws.onmessage = (e) => handleMessage(e.data);
+    } catch(err) {
+      addLog('Failed: ' + err.message, 'error');
+    }
+  }
+}
+
+function setConnected(state) {
+  connected = state;
+  document.getElementById('dot').className   = 'status-dot' + (state ? ' connected' : '');
+  document.getElementById('status-label').textContent = state ? 'Connected' : 'Disconnected';
+  document.getElementById('connect-btn').textContent  = state ? 'Disconnect' : 'Connect';
+  document.getElementById('ws-status').textContent    = state ? `ws://${document.getElementById('server-addr').value}` : 'Disconnected';
+}
+
+function handleMessage(raw) {
+  try {
+    const msg = JSON.parse(raw);
+    if (msg.type === 'sensor_data') updateSensors(msg.data);
+    if (msg.type === 'serial')      addLog(msg.msg, 'serial');
+    if (msg.type === 'log')         addLog(msg.msg, msg.level ?? 'info');
+    if (msg.type === 'iot')         updateIoT(msg.data);
+  } catch {
+    addLog(raw, 'serial');
+  }
+}
+
+function sendCmd(cmd) {
+  const payload = JSON.stringify({ type: 'command', cmd, speed });
+  if (ws?.readyState === WebSocket.OPEN) {
+    ws.send(payload);
+    addLog(`→ CMD: ${cmd}`, 'info');
+  } else {
+    // Demo mode — simulate locally
+    addLog(`[DEMO] ${cmd}`, 'info');
+    showNotif('Demo mode — connect to SimForge server', 'error');
+    simulateDemo(cmd);
+  }
+}
+
+function sendSerial() {
+  const inp = document.getElementById('serial-input');
+  const val = inp.value.trim();
+  if (!val) return;
+  sendCmd('SERIAL:' + val);
+  addLog('→ ' + val, 'info');
+  inp.value = '';
+}
+
+// ── D-pad ──────────────────────────────────────────────────
+function btnDown(dir) {
+  if (pressedBtns[dir]) return;
+  pressedBtns[dir] = true;
+  document.getElementById('btn-' + dir)?.classList.add('pressed');
+  const cmdMap = { fwd:'FORWARD', back:'BACKWARD', left:'LEFT', right:'RIGHT' };
+  sendCmd(cmdMap[dir]);
+}
+function btnUp(dir) {
+  pressedBtns[dir] = false;
+  document.getElementById('btn-' + dir)?.classList.remove('pressed');
+  sendCmd('STOP');
+}
+function updateSpeed(val) {
+  speed = parseInt(val);
+  document.getElementById('speed-val').textContent = val;
+  sendCmd('SPEED:' + val);
+}
+
+// ── Tabs ───────────────────────────────────────────────────
+function showTab(name) {
+  ['control','sensors','iot','serial'].forEach(t => {
+    document.getElementById('pane-' + t).style.display = t === name ? 'block' : 'none';
+    document.getElementById('tab-' + t).className = 'tab' + (t === name ? ' active' : '');
+  });
+}
+
+// ── Sensor updates ─────────────────────────────────────────
+function updateSensors(data) {
+  const set = (id, val, unit='') => {
+    const el = document.getElementById('val-' + id);
+    if (el) el.textContent = val !== null && val !== undefined ? (typeof val === 'number' ? val.toFixed(1) : val) : '--';
+  };
+  if (data.temperature !== undefined) { set('temp', data.temperature); updateCardAlert('card-temp', data.temperature > 35 || data.temperature < 5); }
+  if (data.humidity    !== undefined)   set('hum',   data.humidity);
+  if (data.distance    !== undefined) { set('dist',  data.distance);   updateCardAlert('card-dist', data.distance < 10); }
+  if (data.light       !== undefined)   set('light', data.light);
+  if (data.soil        !== undefined)   set('soil',  data.soil);
+  if (data.motion      !== undefined)   set('motion', data.motion ? 'YES' : 'NO');
+  if (data.accelX      !== undefined)   set('ax', data.accelX);
+  if (data.accelY      !== undefined)   set('ay', data.accelY);
+  if (data.accelZ      !== undefined)   set('az', data.accelZ);
+  if (data.lat         !== undefined)   document.getElementById('val-gps').textContent = `${data.lat?.toFixed(4)}, ${data.lng?.toFixed(4)}`;
+}
+
+function updateCardAlert(cardId, isAlert) {
+  const el = document.getElementById(cardId);
+  if (el) el.className = 'sensor-card' + (isAlert ? ' alert' : '');
+}
+
+function updateIoT(data) {
+  const setGauge = (id, pct) => { const el = document.getElementById('gauge-'+id); if(el) el.style.width = pct+'%'; };
+  const setText  = (id, val) => { const el = document.getElementById('iot-'+id);   if(el) el.textContent = val; };
+  if (data.soil !== undefined) { setText('soil', data.soil+'%');    setGauge('soil', data.soil); }
+  if (data.temp !== undefined) { setText('temp', data.temp+'°C');   setGauge('temp', (data.temp/50)*100); }
+  if (data.hum  !== undefined) { setText('hum',  data.hum+'%');     setGauge('hum',  data.hum); }
+  if (data.volt !== undefined) { setText('volt', data.volt+'V');    setGauge('volt', (data.volt/14.8)*100); }
+  if (data.curr !== undefined) { setText('curr', data.curr+'mA');   setGauge('curr', (data.curr/1000)*100); }
+}
+
+// ── Serial log ─────────────────────────────────────────────
+function addLog(msg, type = 'info') {
+  const el = document.getElementById('serial-log');
+  const now = new Date();
+  const ts  = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
+  const div = document.createElement('div');
+  div.className = 'log-line ' + type;
+  div.innerHTML = `<span class="log-time">${ts}</span>${msg}`;
+  el.appendChild(div);
+  el.scrollTop = el.scrollHeight;
+  msgCount++;
+  document.getElementById('msg-count').textContent = msgCount + ' messages';
+}
+function clearLog() { document.getElementById('serial-log').innerHTML = ''; msgCount = 0; }
+
+// ── Demo simulation (no server) ────────────────────────────
+function simulateDemo(cmd) {
+  // Simulate sensor data locally for demo
+  setTimeout(() => {
+    updateSensors({
+      temperature: 22 + Math.random()*8,
+      humidity:    55 + Math.random()*20,
+      distance:    Math.random() > 0.8 ? 8 + Math.random()*5 : 50 + Math.random()*100,
+      light:       Math.floor(300 + Math.random()*700),
+      soil:        Math.floor(30 + Math.random()*60),
+      motion:      Math.random() > 0.7,
+      accelX:      (Math.random()-0.5)*2,
+      accelY:      (Math.random()-0.5)*2,
+      accelZ:      9.81 + (Math.random()-0.5)*0.3,
+    });
+    updateIoT({
+      soil: Math.floor(40 + Math.random()*40),
+      temp: (22 + Math.random()*8).toFixed(1),
+      hum:  Math.floor(55 + Math.random()*20),
+      volt: (11.8 + Math.random()*1.2).toFixed(1),
+      curr: Math.floor(100 + Math.random()*300),
+    });
+  }, 200);
+}
+
+// ── Notification ───────────────────────────────────────────
+function showNotif(msg, type = 'success') {
+  const el = document.getElementById('notif');
+  el.textContent = msg;
+  el.className   = 'notif ' + type + ' show';
+  setTimeout(() => el.className = 'notif', 2500);
+}
+
+// ── Boot ───────────────────────────────────────────────────
+addLog('SimForge Mobile v1.0 ready', 'success');
+addLog('Connect to your server or use Demo mode', 'info');
+
+// Auto-simulate sensor data in demo mode every 3s
+setInterval(() => {
+  if (!connected) simulateDemo('TICK');
+}, 3000);
+simulateDemo('BOOT');
+</script>
+</body>
+</html>
