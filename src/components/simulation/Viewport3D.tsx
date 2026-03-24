@@ -1,4 +1,8 @@
-import { RealisticArduinoUno, RealisticESP32, RealisticHCSR04, RealisticSG90, RealisticLED, RealisticResistor } from "./RealisticComponents";
+import {
+  RealisticArduinoUno, RealisticLED, RealisticSG90, RealisticMG996R,
+  RealisticDCMotor, RealisticNEMA17, RealisticL298N,
+  RealisticHCSR04, RealisticDHT22, RealisticMPU6050
+} from "./RealisticComponents";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, Grid, PerspectiveCamera, Line, Text } from "@react-three/drei";
 import { Physics, RigidBody, CuboidCollider } from "@react-three/rapier";
@@ -240,14 +244,48 @@ function WireRenderer() {
 
 function SimComponentRenderer({ component }: { component: any }) {
   switch (component.type) {
-    case "esp32-wroom": case "esp8266-nodemcu": return <ESP32Model component={component} />;
-    case "raspberry-pi-4b": case "raspberry-pi-zero": return <RaspberryPi4B component={component} />;
-    case "robot-2wd-car": return <Robot2WDCar component={component} />;
-    case "robot-4wd-car": case "robot-tank-tracks": return <RobotTank component={component} />;
-    case "robot-arm-4dof": case "robot-arm-6dof": return <RobotArm4DOF component={component} />;
-    case "robot-quadcopter": return <RobotQuadcopter component={component} />;
-    case "robot-hexapod": return <RobotHexapod component={component} />;
-    case "robot-humanoid": return <RobotHumanoid component={component} />;
+    // ── Microcontrollers ──
+    case "arduino-uno": case "arduino-nano": case "arduino-mega":
+      return <RealisticArduinoUno component={component} />;
+    case "esp32-wroom": case "esp8266-nodemcu":
+      return <ESP32Model component={component} />;
+    case "raspberry-pi-4b": case "raspberry-pi-zero":
+      return <RaspberryPi4B component={component} />;
+    // ── Sensors ──
+    case "hc-sr04":
+      return <RealisticHCSR04 component={component} />;
+    case "dht22": case "dht11":
+      return <RealisticDHT22 component={component} />;
+    case "mpu6050":
+      return <RealisticMPU6050 component={component} />;
+    // ── Actuators ──
+    case "servo-sg90":
+      return <RealisticSG90 component={component} />;
+    case "servo-mg996r":
+      return <RealisticMG996R component={component} />;
+    case "dc-motor": case "dc-motor-encoder":
+      return <RealisticDCMotor component={component} />;
+    case "nema17-stepper":
+      return <RealisticNEMA17 component={component} />;
+    case "l298n-driver":
+      return <RealisticL298N component={component} />;
+    // ── Output ──
+    case "led": case "led-rgb":
+      return <RealisticLED component={component} />;
+    // ── Robots ──
+    case "robot-2wd-car":
+      return <Robot2WDCar component={component} />;
+    case "robot-4wd-car": case "robot-tank-tracks":
+      return <RobotTank component={component} />;
+    case "robot-arm-4dof": case "robot-arm-6dof":
+      return <RobotArm4DOF component={component} />;
+    case "robot-quadcopter":
+      return <RobotQuadcopter component={component} />;
+    case "robot-hexapod":
+      return <RobotHexapod component={component} />;
+    case "robot-humanoid":
+      return <RobotHumanoid component={component} />;
+    // ── Environment ──
     case "env-wall": return <EnvWall component={component} />;
     case "env-ramp": return <EnvRamp component={component} />;
     case "env-obstacle": return <EnvObstacle component={component} />;

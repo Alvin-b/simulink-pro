@@ -684,22 +684,27 @@ function buildEnvironment(preset: EnvironmentPreset): SimComponent[] {
   }
 }
 
-// Initial scene
+// Initial scene — components laid out on the work table
 const initialComponents: SimComponent[] = [
-  componentCreators["arduino-uno"]("arduino-1", [0, 0.85, 0]),
-  componentCreators["led"]("led-1", [2.5, 0.85, -0.5]),
-  componentCreators["resistor"]("res-1", [1.8, 0.85, -0.5]),
-  componentCreators["servo-sg90"]("servo-1", [-2, 0.85, -1.5]),
-  componentCreators["hc-sr04"]("ultra-1", [-2, 0.85, 1.5]),
-  componentCreators["robot-2wd-car"]("robot-1", [0, 0.2, 5]),
-  componentCreators["robot-arm-4dof"]("arm-1", [-5, 0.85, 0]),
-  // Environment - robotics lab
-  componentCreators["env-table"]("table-1", [0, 0, 0]),
-  componentCreators["env-wall"]("wall-back", [0, 0.75, -6]),
-  componentCreators["env-obstacle"]("obs-1", [3, 0.25, 4]),
-  componentCreators["env-obstacle"]("obs-2", [-3, 0.25, 5]),
-  componentCreators["env-ramp"]("ramp-1", [5, 0, 4]),
-  componentCreators["env-line-track"]("track-1", [0, 0.01, 5]),
+  // ── Workbench electronics (on the table surface at y=0.88) ──
+  componentCreators["arduino-uno"]("arduino-1",   [0,    0.92, 0]),
+  componentCreators["led"]        ("led-1",        [1.8,  0.92, -0.3]),
+  componentCreators["resistor"]   ("res-1",        [1.3,  0.92, -0.3]),
+  componentCreators["servo-sg90"] ("servo-1",      [-1.5, 0.92, -0.8]),
+  componentCreators["hc-sr04"]    ("ultra-1",      [-1.6, 0.92,  0.8]),
+
+  // ── Robots on the floor ──
+  componentCreators["robot-2wd-car"]  ("robot-1",  [0,    0.22,  4.5]),
+  componentCreators["robot-arm-4dof"] ("arm-1",    [-4.5, 0.0,   0]),
+
+  // ── Environment — robotics lab setup ──
+  componentCreators["env-table"]  ("table-1",      [0,    0,     0]),
+  componentCreators["env-wall"]   ("wall-back",    [0,    0.75, -6]),
+  componentCreators["env-wall"]   ("wall-left",    [-6,   0.75,  0]),
+  componentCreators["env-obstacle"]("obs-1",       [3,    0.25,  4]),
+  componentCreators["env-obstacle"]("obs-2",       [-3,   0.25,  5]),
+  componentCreators["env-ramp"]   ("ramp-1",       [5,    0,     4]),
+  componentCreators["env-line-track"]("track-1",   [0,    0.01,  5]),
 ];
 
 export const useSimulationStore = create<SimulationStore>((set, get) => ({
