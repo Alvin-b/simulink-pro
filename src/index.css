@@ -3,3 +3,84 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 220 20% 8%;
+    --foreground: 210 20% 90%;
+    --card: 220 18% 12%;
+    --card-foreground: 210 20% 90%;
+    --popover: 220 18% 14%;
+    --popover-foreground: 210 20% 90%;
+    --primary: 190 95% 50%;
+    --primary-foreground: 220 20% 8%;
+    --secondary: 220 16% 18%;
+    --secondary-foreground: 210 20% 80%;
+    --muted: 220 14% 16%;
+    --muted-foreground: 215 12% 55%;
+    --accent: 190 80% 40%;
+    --accent-foreground: 210 20% 95%;
+    --destructive: 0 72% 55%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 220 14% 20%;
+    --input: 220 14% 20%;
+    --ring: 190 95% 50%;
+    --radius: 0.5rem;
+    --sidebar-background: 220 20% 10%;
+    --sidebar-foreground: 210 20% 80%;
+    --sidebar-primary: 190 95% 50%;
+    --sidebar-primary-foreground: 220 20% 8%;
+    --sidebar-accent: 220 16% 16%;
+    --sidebar-accent-foreground: 210 20% 85%;
+    --sidebar-border: 220 14% 18%;
+    --sidebar-ring: 190 95% 50%;
+    --surface-elevated: 220 18% 14%;
+    --surface-hover: 220 16% 18%;
+    --glow-primary: 190 95% 50%;
+    --glow-success: 142 70% 45%;
+    --glow-warning: 38 92% 50%;
+    --glow-error: 0 72% 55%;
+    --grid-color: 220 14% 16%;
+    --toolbar-bg: 220 18% 11%;
+    font-family: 'Inter', sans-serif;
+  }
+}
+
+@layer base {
+  /* Kill white flash on html/body completely */
+  html, body, #root {
+    background-color: #0a0d12 !important;
+    color: hsl(210 20% 90%);
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  * {
+    @apply border-border;
+    box-sizing: border-box;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: 'Inter', sans-serif;
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: hsl(220 18% 10%); }
+  ::-webkit-scrollbar-thumb { background: hsl(220 14% 25%); border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: hsl(190 95% 50% / 0.5); }
+}
+
+@layer utilities {
+  .font-mono { font-family: 'JetBrains Mono', monospace; }
+  .glow-primary { box-shadow: 0 0 20px hsl(var(--glow-primary) / 0.3), 0 0 40px hsl(var(--glow-primary) / 0.1); }
+  .glow-primary-sm { box-shadow: 0 0 8px hsl(var(--glow-primary) / 0.3); }
+  .border-glow { border-color: hsl(var(--glow-primary) / 0.4); }
+  .text-glow { text-shadow: 0 0 10px hsl(var(--glow-primary) / 0.5); }
+  .surface-elevated { background-color: hsl(var(--surface-elevated)); }
+  .toolbar-bg { background-color: hsl(var(--toolbar-bg)); }
+}
