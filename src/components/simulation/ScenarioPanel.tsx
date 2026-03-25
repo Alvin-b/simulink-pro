@@ -452,7 +452,6 @@ void loop() {
     ],
     hint: "error = setpoint - measured. output = Kp*error + Ki*integral + Kd*derivative",
     starterCode: `// SimForge — PID Speed Controller`,
-    environment: "robotics-lab",
   },
   {
     id: "drone-flight",

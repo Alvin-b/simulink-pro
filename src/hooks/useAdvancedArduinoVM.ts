@@ -198,7 +198,7 @@ export function useAdvancedArduinoVM() {
           },
 
           write: (data: string | number | Uint8Array) => {
-            iot.sendSerial(componentId, data);
+            iot.sendSerial(componentId, typeof data === 'number' ? String(data) : data);
           },
 
           available: () => {
@@ -246,8 +246,8 @@ export function useAdvancedArduinoVM() {
             log("info", `Servo.write(${clamped}°)`);
           },
 
-          read: () => {
-            return component?.properties.angle ?? 90;
+          read: (): number => {
+            return Number(component?.properties.angle ?? 90);
           },
 
           detach: () => {

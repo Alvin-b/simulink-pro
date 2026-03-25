@@ -317,8 +317,9 @@ export function RealisticArduinoUno({ component }: { component: SimComponent }) 
         {ledOn && <pointLight position={[0.7, 0.3, 0.3]} color="#ffaa00" intensity={0.4} distance={1.5} />}
 
         {/* ── "ARDUINO UNO" silkscreen ── */}
+        {/* @ts-ignore */}
         <Text position={[-0.2, H/2+0.005, 0.3]} fontSize={0.1} color="#ffffff" anchorX="center"
-          rotation={[-Math.PI/2,0,0]} transparent opacity={0.4}>
+          rotation={[-Math.PI/2,0,0]} fillOpacity={0.4}>
           ARDUINO UNO
         </Text>
 
@@ -807,7 +808,7 @@ export function RealisticNEMA17({ component }: { component: SimComponent }) {
         </mesh>
         {/* Shaft boss */}
         <mesh position={[0, 0, 0.36]} castShadow>
-          <cylinderGeometry args={[0.12, 0.12, 0.04, 12]} rotation={[Math.PI/2,0,0] as any} />
+          <cylinderGeometry args={[0.12, 0.12, 0.04, 12]} />
           <meshStandardMaterial color="#555" metalness={0.7} roughness={0.2} />
         </mesh>
         {/* Output shaft */}
@@ -818,7 +819,7 @@ export function RealisticNEMA17({ component }: { component: SimComponent }) {
         {/* Mounting holes */}
         {[[-0.27, -0.27], [-0.27, 0.27], [0.27, -0.27], [0.27, 0.27]].map(([x, y], i) => (
           <mesh key={i} position={[x, y, 0.34]}>
-            <cylinderGeometry args={[0.025, 0.025, 0.05, 6]} rotation={[Math.PI/2,0,0] as any} />
+            <cylinderGeometry args={[0.025, 0.025, 0.05, 6]} />
             <meshStandardMaterial color="#111" roughness={0.5} />
           </mesh>
         ))}

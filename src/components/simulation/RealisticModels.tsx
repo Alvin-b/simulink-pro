@@ -318,12 +318,14 @@ export function ArduinoUno({ component }: { component: any }) {
         })}
 
         {/* ── Silkscreen text ── */}
+        {/* @ts-ignore */}
         <Text position={[-0.05, H/2+0.002, 0.28]} fontSize={0.09} color="#ddffee"
-          anchorX="center" rotation={[-Math.PI/2,0,0]} transparent opacity={0.65}>
+          anchorX="center" rotation={[-Math.PI/2,0,0]} fillOpacity={0.65}>
           Arduino
         </Text>
+        {/* @ts-ignore */}
         <Text position={[-0.05, H/2+0.002, 0.4]} fontSize={0.072} color="#aaccbb"
-          anchorX="center" rotation={[-Math.PI/2,0,0]} transparent opacity={0.5}>
+          anchorX="center" rotation={[-Math.PI/2,0,0]} fillOpacity={0.5}>
           UNO R3
         </Text>
 
@@ -703,7 +705,7 @@ export function Robot2WDCar({ component }: { component: any }) {
                 <meshStandardMaterial color="#ddddcc" roughness={0.5} metalness={0.2} />
               </mesh>
               <mesh position={[-0.04, 0, 0]}>
-                <cylinderGeometry args={[0.08, 0.08, 0.02, 16]} rotation={[0, 0, Math.PI / 2] as any} />
+                <cylinderGeometry args={[0.08, 0.08, 0.02, 16]} />
                 <meshStandardMaterial color="#111" roughness={0.8} />
               </mesh>
             </group>
@@ -1085,7 +1087,7 @@ export function HCSr04({ component }: { component: any }) {
         {/* Beam visualization */}
         {simState === "running" && distance > 5 && (
           <mesh position={[0, 0.08, 0.22]}>
-            <coneGeometry args={[distance * 0.018, distance * 0.02, 10]} rotation={[-Math.PI/2,0,0] as any} />
+            <coneGeometry args={[distance * 0.018, distance * 0.02, 10]} />
             <meshBasicMaterial color="#44aaff" transparent opacity={0.05} />
           </mesh>
         )}

@@ -1,5 +1,5 @@
 import { ComponentLibrary } from "@/components/simulation/ComponentLibrary";
-import { EnhancedViewport3D as Viewport3D } from "@/components/simulation/EnhancedViewport3D";
+import { Viewport3D } from "@/components/simulation/Viewport3D";
 import { PropertiesPanel } from "@/components/simulation/PropertiesPanel";
 import { ConsolePanel } from "@/components/simulation/ConsolePanel";
 import { TopToolbar } from "@/components/simulation/TopToolbar";
