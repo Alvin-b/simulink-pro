@@ -318,12 +318,14 @@ export function ArduinoUno({ component }: { component: any }) {
         })}
 
         {/* ── Silkscreen text ── */}
+        {/* @ts-ignore - drei Text prop types */}
         <Text position={[-0.05, H/2+0.002, 0.28]} fontSize={0.09} color="#ddffee"
-          anchorX="center" rotation={[-Math.PI/2,0,0]} transparent opacity={0.65}>
+          anchorX="center" rotation={[-Math.PI/2,0,0]} transparent={true} opacity={0.65}>
           Arduino
         </Text>
+        {/* @ts-ignore - drei Text prop types */}
         <Text position={[-0.05, H/2+0.002, 0.4]} fontSize={0.072} color="#aaccbb"
-          anchorX="center" rotation={[-Math.PI/2,0,0]} transparent opacity={0.5}>
+          anchorX="center" rotation={[-Math.PI/2,0,0]} transparent={true} opacity={0.5}>
           UNO R3
         </Text>
 
