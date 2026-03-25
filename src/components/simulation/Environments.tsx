@@ -976,7 +976,142 @@ function OutdoorFieldScene() {
   );
 }
 
-// ─── Sky renderer ──────────────────────────────────────────
+// ─── Desert Scene ──────────────────────────────────────────
+
+function DesertScene() {
+  return (
+    <group>
+      {/* Sandy terrain patches */}
+      {[[-8, 0, -6], [6, 0, -8], [-5, 0, 5], [8, 0, 4]].map(([x, y, z], i) => (
+        <mesh key={i} position={[x, y, z]} castShadow>
+          <sphereGeometry args={[2 + i * 0.5, 8, 8, 0, Math.PI * 2, 0, Math.PI / 2]} />
+          <meshStandardMaterial color="#d4a850" roughness={1} />
+        </mesh>
+      ))}
+      {/* Rocks */}
+      {[[-3, 0, -4], [5, 0, 2], [-7, 0, 3]].map(([x, y, z], i) => (
+        <mesh key={`rock-${i}`} position={[x, 0.3, z]} castShadow>
+          <dodecahedronGeometry args={[0.5 + i * 0.2, 0]} />
+          <meshStandardMaterial color="#8a7a60" roughness={0.9} />
+        </mesh>
+      ))}
+      {/* Solar panel array */}
+      <group position={[0, 0, -5]}>
+        <RigidBody type="fixed">
+          {[0, 2, 4].map((x, i) => (
+            <group key={i} position={[x - 2, 0, 0]}>
+              <mesh position={[0, 1, 0]} rotation={[-0.4, 0, 0]} castShadow>
+                <boxGeometry args={[1.8, 0.04, 1.2]} />
+                <meshStandardMaterial color="#1a2244" roughness={0.2} metalness={0.6} />
+              </mesh>
+              <mesh position={[0, 0.5, 0]}>
+                <boxGeometry args={[0.06, 1, 0.06]} />
+                <meshStandardMaterial color="#888" metalness={0.7} roughness={0.3} />
+              </mesh>
+            </group>
+          ))}
+          <CuboidCollider args={[3.5, 0.5, 0.8]} position={[0, 1, 0]} />
+        </RigidBody>
+      </group>
+      {/* Drone landing pad */}
+      <group position={[5, 0.01, 5]}>
+        <mesh rotation={[-Math.PI / 2, 0, 0]}>
+          <circleGeometry args={[1.5, 24]} />
+          <meshStandardMaterial color="#444" roughness={0.5} />
+        </mesh>
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.001, 0]}>
+          <ringGeometry args={[1.2, 1.5, 24]} />
+          <meshStandardMaterial color="#ffdd00" roughness={0.5} />
+        </mesh>
+        <Text rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.002, 0]} fontSize={0.4} color="#ffdd00" anchorX="center">
+          H
+        </Text>
+      </group>
+    </group>
+  );
+}
+
+// ─── Warehouse Scene ───────────────────────────────────────
+
+function WarehouseScene() {
+  return (
+    <group>
+      {/* Concrete floor */}
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.001, 0]} receiveShadow>
+        <planeGeometry args={[40, 30]} />
+        <meshStandardMaterial color="#2a2a2a" roughness={0.85} />
+      </mesh>
+      {/* Ceiling */}
+      <mesh position={[0, 7, 0]}>
+        <boxGeometry args={[40, 0.2, 30]} />
+        <meshStandardMaterial color="#1a1a1a" roughness={0.8} />
+      </mesh>
+      {/* Walls */}
+      {[
+        { pos: [0, 3.5, -14.9] as [number, number, number], w: 40, h: 7 },
+        { pos: [0, 3.5, 14.9] as [number, number, number], w: 40, h: 7 },
+        { pos: [-19.9, 3.5, 0] as [number, number, number], w: 30, h: 7, rotY: Math.PI / 2 },
+        { pos: [19.9, 3.5, 0] as [number, number, number], w: 30, h: 7, rotY: Math.PI / 2 },
+      ].map((w, i) => (
+        <mesh key={i} position={w.pos} rotation={[0, (w as any).rotY || 0, 0]}>
+          <boxGeometry args={[w.w, w.h, 0.2]} />
+          <meshStandardMaterial color="#2a2520" roughness={0.9} />
+        </mesh>
+      ))}
+      {/* Shelving racks */}
+      {[-8, -2, 4, 10].map((x, i) => (
+        <group key={i} position={[x, 0, 0]}>
+          <RigidBody type="fixed">
+            {/* Uprights */}
+            {[-3, 3].map((z, j) => (
+              <mesh key={j} position={[0, 2.5, z]} castShadow>
+                <boxGeometry args={[0.08, 5, 0.08]} />
+                <meshStandardMaterial color="#ff6600" roughness={0.4} metalness={0.5} />
+              </mesh>
+            ))}
+            {/* Shelves */}
+            {[1, 2.5, 4].map((y, j) => (
+              <mesh key={`shelf-${j}`} position={[0, y, 0]} castShadow>
+                <boxGeometry args={[1.2, 0.04, 6.2]} />
+                <meshStandardMaterial color="#555" metalness={0.5} roughness={0.4} />
+              </mesh>
+            ))}
+            {/* Random cargo boxes */}
+            {[1.1, 2.6, 4.1].map((y, j) => (
+              <mesh key={`cargo-${j}`} position={[0, y + 0.25, (j - 1) * 1.5]} castShadow>
+                <boxGeometry args={[0.8, 0.5, 0.6]} />
+                <meshStandardMaterial color={["#8b6914", "#555", "#336699"][j]} roughness={0.7} />
+              </mesh>
+            ))}
+            <CuboidCollider args={[0.6, 2.5, 3.1]} position={[0, 2.5, 0]} />
+          </RigidBody>
+        </group>
+      ))}
+      {/* Floor markings */}
+      {[-5, 0, 5].map((z, i) => (
+        <mesh key={i} rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.005, z]}>
+          <planeGeometry args={[30, 0.12]} />
+          <meshStandardMaterial color="#ffdd00" roughness={0.5} />
+        </mesh>
+      ))}
+      {/* Overhead lights */}
+      {[[-8, 0], [0, 0], [8, 0], [-8, -6], [0, -6], [8, -6]].map(([x, z], i) => (
+        <group key={i} position={[x, 6.8, z]}>
+          <mesh>
+            <boxGeometry args={[0.5, 0.1, 0.3]} />
+            <meshStandardMaterial color="#333" roughness={0.3} metalness={0.5} />
+          </mesh>
+          <mesh position={[0, -0.08, 0]}>
+            <boxGeometry args={[0.45, 0.03, 0.25]} />
+            <meshStandardMaterial color="#ffffee" emissive="#ffffee" emissiveIntensity={3} />
+          </mesh>
+          <pointLight color="#ffffcc" intensity={1.5} distance={10} castShadow position={[0, -0.3, 0]} />
+        </group>
+      ))}
+    </group>
+  );
+}
+
 
 function SceneSky({ config, theme }: { config: EnvironmentConfig; theme: EnvironmentTheme }) {
   const isIndoor = theme === "robotics-lab" || theme === "smart-home" || theme === "warehouse";
