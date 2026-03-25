@@ -1053,6 +1053,8 @@ export function EnvironmentScene({ theme }: Props) {
       {theme === "smart-home"     && <SmartHomeScene />}
       {theme === "industrial"     && <IndustrialScene />}
       {theme === "outdoor-field"  && <OutdoorFieldScene />}
+      {theme === "desert"         && <DesertScene />}
+      {theme === "warehouse"      && <WarehouseScene />}
     </>
   );
 }

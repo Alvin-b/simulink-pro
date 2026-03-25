@@ -252,6 +252,9 @@ export function ComponentLibrary() {
           </div>
         ))}
       </div>
+
+      {/* Custom model upload */}
+      <CustomModelUpload />
     </div>
   );
 }
