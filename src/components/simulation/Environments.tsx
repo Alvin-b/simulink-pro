@@ -595,6 +595,188 @@ function SmartHomeScene() {
         </mesh>
         <pointLight color="#ffe8cc" intensity={1.5} distance={8} position={[-1, 0, 0]} />
       </group>
+
+      {/* ── Smart Thermostat on wall ── */}
+      <group position={[4, 1.3, -6.78]}>
+        {/* Housing */}
+        <mesh castShadow>
+          <cylinderGeometry args={[0.12, 0.12, 0.04, 24]} />
+          <meshStandardMaterial color="#f5f5f5" roughness={0.2} metalness={0.1} />
+        </mesh>
+        {/* Screen */}
+        <mesh position={[0, 0, 0.025]} rotation={[0, 0, 0]}>
+          <circleGeometry args={[0.08, 24]} />
+          <meshStandardMaterial color="#001122" emissive="#0044aa" emissiveIntensity={0.8} />
+        </mesh>
+        {/* Temperature text glow */}
+        <Text position={[0, 0.01, 0.03]} fontSize={0.04} color="#00ccff" anchorX="center">
+          22°C
+        </Text>
+      </group>
+
+      {/* ── Smart Door Lock ── */}
+      <group position={[-8.85, 1.1, -2]}>
+        {/* Door */}
+        <mesh castShadow>
+          <boxGeometry args={[0.08, 2.2, 0.9]} />
+          <meshStandardMaterial color="#5c3a1e" roughness={0.7} />
+        </mesh>
+        {/* Lock housing */}
+        <mesh position={[0.05, 0, 0.3]} castShadow>
+          <boxGeometry args={[0.06, 0.2, 0.08]} />
+          <meshStandardMaterial color="#333" metalness={0.8} roughness={0.2} />
+        </mesh>
+        {/* Lock keypad */}
+        <mesh position={[0.08, 0.15, 0.3]}>
+          <boxGeometry args={[0.02, 0.15, 0.06]} />
+          <meshStandardMaterial color="#111" roughness={0.3} />
+        </mesh>
+        {/* Lock LED */}
+        <mesh position={[0.09, 0.25, 0.3]}>
+          <sphereGeometry args={[0.008, 6, 6]} />
+          <meshStandardMaterial color="#00ff00" emissive="#00ff00" emissiveIntensity={3} />
+        </mesh>
+        {/* Door handle */}
+        <mesh position={[0.05, 0, 0.3]} rotation={[0, 0, Math.PI / 2]}>
+          <cylinderGeometry args={[0.015, 0.015, 0.12, 8]} />
+          <meshStandardMaterial color="#c0c0c0" metalness={0.9} roughness={0.1} />
+        </mesh>
+      </group>
+
+      {/* ── Security Camera (indoor) ── */}
+      <group position={[7, 2.7, -5]}>
+        {/* Mount bracket */}
+        <mesh castShadow>
+          <boxGeometry args={[0.1, 0.06, 0.1]} />
+          <meshStandardMaterial color="#222" roughness={0.3} metalness={0.6} />
+        </mesh>
+        {/* Camera body */}
+        <mesh position={[0, -0.08, 0.04]} rotation={[0.3, 0, 0]} castShadow>
+          <cylinderGeometry args={[0.04, 0.05, 0.12, 12]} />
+          <meshStandardMaterial color="#1a1a1a" roughness={0.3} metalness={0.5} />
+        </mesh>
+        {/* Lens */}
+        <mesh position={[0, -0.12, 0.1]} rotation={[0.3, 0, 0]}>
+          <cylinderGeometry args={[0.02, 0.02, 0.02, 12]} />
+          <meshStandardMaterial color="#111" roughness={0.1} metalness={0.9} />
+        </mesh>
+        {/* IR LED ring */}
+        <mesh position={[0, -0.12, 0.11]} rotation={[0.3, 0, 0]}>
+          <ringGeometry args={[0.025, 0.035, 12]} />
+          <meshStandardMaterial color="#440000" emissive="#330000" emissiveIntensity={1} />
+        </mesh>
+        {/* Status LED */}
+        <mesh position={[0.04, -0.06, 0]}>
+          <sphereGeometry args={[0.006, 6, 6]} />
+          <meshStandardMaterial color="#ff0000" emissive="#ff0000" emissiveIntensity={2} />
+        </mesh>
+      </group>
+
+      {/* ── Smart Plug (on coffee table) ── */}
+      <group position={[0.4, 0.45, 0.5]}>
+        <mesh castShadow>
+          <boxGeometry args={[0.08, 0.06, 0.06]} />
+          <meshStandardMaterial color="#f0f0f0" roughness={0.3} />
+        </mesh>
+        <mesh position={[0, 0, 0.035]}>
+          <circleGeometry args={[0.015, 8]} />
+          <meshStandardMaterial color="#00aaff" emissive="#00aaff" emissiveIntensity={2} />
+        </mesh>
+      </group>
+
+      {/* ── Bookshelf with smart display ── */}
+      <group position={[-7, 0, 3]}>
+        <RigidBody type="fixed">
+          {/* Shelf frame */}
+          <mesh position={[0, 1, 0]} castShadow>
+            <boxGeometry args={[1.5, 2, 0.4]} />
+            <meshStandardMaterial color="#5c3a1e" roughness={0.7} />
+          </mesh>
+          {/* Shelves */}
+          {[0.3, 0.8, 1.3, 1.8].map((y, i) => (
+            <mesh key={i} position={[0, y, 0]}>
+              <boxGeometry args={[1.4, 0.03, 0.35]} />
+              <meshStandardMaterial color="#4a2a10" roughness={0.6} />
+            </mesh>
+          ))}
+          {/* Books */}
+          {[[-0.4, 0.5], [-0.2, 0.5], [0, 0.5], [0.2, 0.5], [-0.3, 1.0], [0.1, 1.0]].map(([x, y], i) => (
+            <mesh key={`book-${i}`} position={[x, y, 0]} castShadow>
+              <boxGeometry args={[0.08, 0.25, 0.2]} />
+              <meshStandardMaterial color={["#cc3333", "#2255aa", "#339933", "#cc8833", "#663399", "#cc6633"][i]} roughness={0.8} />
+            </mesh>
+          ))}
+          <CuboidCollider args={[0.75, 1, 0.2]} position={[0, 1, 0]} />
+        </RigidBody>
+        {/* Smart display frame on shelf */}
+        <mesh position={[0, 1.45, 0.12]} castShadow>
+          <boxGeometry args={[0.5, 0.35, 0.03]} />
+          <meshStandardMaterial color="#111" roughness={0.2} metalness={0.7} />
+        </mesh>
+        <mesh position={[0, 1.45, 0.14]}>
+          <planeGeometry args={[0.45, 0.3]} />
+          <meshStandardMaterial color="#001133" emissive="#003366" emissiveIntensity={0.6} />
+        </mesh>
+        <Text position={[0, 1.48, 0.15]} fontSize={0.03} color="#44aaff" anchorX="center">
+          IoT Dashboard
+        </Text>
+        <Text position={[0, 1.42, 0.15]} fontSize={0.025} color="#00cc88" anchorX="center">
+          Temp: 22°C | Hum: 55%
+        </Text>
+      </group>
+
+      {/* ── Floor Lamp with smart bulb ── */}
+      <group position={[5, 0, 3]}>
+        <mesh position={[0, 0.8, 0]} castShadow>
+          <cylinderGeometry args={[0.02, 0.02, 1.6, 8]} />
+          <meshStandardMaterial color="#333" metalness={0.7} roughness={0.3} />
+        </mesh>
+        <mesh position={[0, 0.02, 0]}>
+          <cylinderGeometry args={[0.15, 0.15, 0.04, 12]} />
+          <meshStandardMaterial color="#444" metalness={0.5} roughness={0.4} />
+        </mesh>
+        <mesh position={[0, 1.65, 0]} castShadow>
+          <cylinderGeometry args={[0.02, 0.15, 0.25, 12]} />
+          <meshStandardMaterial color="#e8e0d0" roughness={0.7} />
+        </mesh>
+        <mesh position={[0, 1.6, 0]}>
+          <sphereGeometry args={[0.04, 8, 8]} />
+          <meshStandardMaterial color="#ffe8a0" emissive="#ffcc44" emissiveIntensity={3} />
+        </mesh>
+        <pointLight color="#ffcc66" intensity={1.2} distance={5} position={[0, 1.5, 0]} castShadow />
+      </group>
+
+      {/* ── Wall-mounted second screen (side wall) ── */}
+      <group position={[8.85, 1.3, -3]}>
+        <mesh rotation={[0, -Math.PI / 2, 0]} castShadow>
+          <boxGeometry args={[1.2, 0.7, 0.04]} />
+          <meshStandardMaterial color="#0a0a0a" roughness={0.2} metalness={0.8} />
+        </mesh>
+        <mesh position={[-0.03, 0, 0]} rotation={[0, -Math.PI / 2, 0]}>
+          <planeGeometry args={[1.1, 0.6]} />
+          <meshStandardMaterial color="#001133" emissive="#002255" emissiveIntensity={0.5} />
+        </mesh>
+        <Text position={[-0.04, 0.1, 0]} rotation={[0, -Math.PI / 2, 0]} fontSize={0.06} color="#44aaff" anchorX="center">
+          Security Feeds
+        </Text>
+      </group>
+
+      {/* ── Smart Curtain Motor (on window) ── */}
+      <group position={[8.6, 2.3, 0]}>
+        <mesh castShadow>
+          <boxGeometry args={[0.12, 0.08, 1.4]} />
+          <meshStandardMaterial color="#e8e0d0" roughness={0.3} />
+        </mesh>
+        <mesh position={[0.02, 0, 0.6]}>
+          <boxGeometry args={[0.06, 0.06, 0.06]} />
+          <meshStandardMaterial color="#333" roughness={0.3} metalness={0.5} />
+        </mesh>
+        {/* Curtain fabric */}
+        <mesh position={[0, -0.6, 0]} castShadow>
+          <boxGeometry args={[0.04, 1.2, 1.3]} />
+          <meshStandardMaterial color="#8b7060" roughness={0.9} transparent opacity={0.8} />
+        </mesh>
+      </group>
     </group>
   );
 }
