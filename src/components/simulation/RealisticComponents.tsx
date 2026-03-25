@@ -808,7 +808,7 @@ export function RealisticNEMA17({ component }: { component: SimComponent }) {
         </mesh>
         {/* Shaft boss */}
         <mesh position={[0, 0, 0.36]} castShadow>
-          <cylinderGeometry args={[0.12, 0.12, 0.04, 12]} rotation={[Math.PI/2,0,0] as any} />
+          <cylinderGeometry args={[0.12, 0.12, 0.04, 12]} />
           <meshStandardMaterial color="#555" metalness={0.7} roughness={0.2} />
         </mesh>
         {/* Output shaft */}
