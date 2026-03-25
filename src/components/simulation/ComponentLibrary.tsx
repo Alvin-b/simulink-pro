@@ -4,6 +4,7 @@ import {
   ChevronDown, ChevronRight, Search, Grip, Plus, Monitor, Wifi
 } from "lucide-react";
 import { useSimulationStore, ComponentType, EnvironmentPreset } from "@/stores/simulationStore";
+import { CustomModelUpload } from "./CustomModelUpload";
 
 interface LibItem { name: string; description: string; type: ComponentType }
 interface LibCategory { name: string; icon: React.ReactNode; items: LibItem[] }
@@ -251,6 +252,9 @@ export function ComponentLibrary() {
           </div>
         ))}
       </div>
+
+      {/* Custom model upload */}
+      <CustomModelUpload />
     </div>
   );
 }

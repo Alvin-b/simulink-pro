@@ -449,124 +449,267 @@ export function ESP32Model({ component }: { component: SimComponent }) {
   );
 }
 
-// ─── 2WD Smart Robot Car ──────────────────────────────────────
+// ─── 2WD Smart Robot Car (Highly Realistic Kit Chassis) ──────
 
 export function Robot2WDCar({ component }: { component: SimComponent }) {
   const { select, selected } = useSelect(component.id);
   const simState = useSimulationStore((s) => s.simState);
-  const wheelFL = useRef<THREE.Mesh>(null);
-  const wheelFR = useRef<THREE.Mesh>(null);
-  const wheelRL = useRef<THREE.Mesh>(null);
-  const wheelRR = useRef<THREE.Mesh>(null);
+  const wheelL = useRef<THREE.Mesh>(null);
+  const wheelR = useRef<THREE.Mesh>(null);
+  const casterRef = useRef<THREE.Group>(null);
   const speed = (component.properties.speed as number) || 0;
 
   useFrame((_, delta) => {
     if (simState === "running") {
       const rot = speed * delta * 5;
-      [wheelFL, wheelFR, wheelRL, wheelRR].forEach((ref) => {
-        if (ref.current) ref.current.rotation.x += rot;
-      });
+      if (wheelL.current) wheelL.current.rotation.x += rot;
+      if (wheelR.current) wheelR.current.rotation.x += rot;
     }
   });
 
   return (
     <RigidBody type="dynamic" position={component.position} mass={0.32}>
       <group onClick={select}>
-        {/* Chassis - acrylic plate */}
-        <mesh castShadow receiveShadow>
-          <boxGeometry args={[1.8, 0.08, 1.2]} />
-          <meshStandardMaterial color="#1a1a2e" roughness={0.3} transparent opacity={0.85} />
+        {/* ── Lower chassis plate (acrylic, transparent blue-tinted) ── */}
+        <mesh castShadow receiveShadow position={[0, 0, 0]}>
+          <boxGeometry args={[1.8, 0.06, 1.3]} />
+          <meshStandardMaterial color="#1a2240" roughness={0.2} transparent opacity={0.75} metalness={0.05} />
         </mesh>
-        {/* Upper deck */}
-        <mesh position={[0, 0.35, 0]} castShadow>
-          <boxGeometry args={[1.6, 0.06, 1.0]} />
-          <meshStandardMaterial color="#1a1a2e" roughness={0.3} transparent opacity={0.85} />
-        </mesh>
-        {/* Standoffs */}
-        {[[-0.6, -0.4], [-0.6, 0.4], [0.6, -0.4], [0.6, 0.4]].map(([x, z], i) => (
-          <mesh key={`standoff-${i}`} position={[x, 0.2, z]}>
-            <cylinderGeometry args={[0.04, 0.04, 0.28, 6]} />
-            <meshStandardMaterial color={GOLD} metalness={0.8} roughness={0.2} />
+        {/* Chassis cutouts / slots (for motor mounts) */}
+        {[[-0.5, -0.45], [-0.5, 0.45]].map(([x, z], i) => (
+          <mesh key={`slot-${i}`} position={[x, 0, z]}>
+            <boxGeometry args={[0.5, 0.07, 0.2]} />
+            <meshStandardMaterial color="#0a1020" roughness={0.3} transparent opacity={0.6} />
           </mesh>
         ))}
-        {/* Wheels */}
-        {[[-0.5, -0.7], [-0.5, 0.7], [0.5, -0.7], [0.5, 0.7]].map(([x, z], i) => {
-          const refs = [wheelFL, wheelFR, wheelRL, wheelRR];
-          return (
-            <group key={`wheel-${i}`} position={[x, -0.1, z]}>
-              <mesh ref={refs[i]} rotation={[0, 0, Math.PI / 2]} castShadow>
-                <cylinderGeometry args={[0.22, 0.22, 0.12, 16]} />
-                <meshStandardMaterial color="#1a1a1a" roughness={0.8} />
-              </mesh>
-              {/* Tire tread */}
-              <mesh rotation={[0, 0, Math.PI / 2]}>
-                <cylinderGeometry args={[0.22, 0.22, 0.13, 16, 1, true]} />
-                <meshStandardMaterial color="#333" roughness={0.9} />
-              </mesh>
-              {/* Hub */}
-              <mesh rotation={[0, 0, Math.PI / 2]}>
-                <cylinderGeometry args={[0.1, 0.1, 0.14, 8]} />
-                <meshStandardMaterial color="#888" metalness={0.6} roughness={0.3} />
-              </mesh>
-            </group>
-          );
-        })}
-        {/* DC Motors */}
+
+        {/* ── Upper deck plate ── */}
+        <mesh position={[0, 0.4, 0]} castShadow>
+          <boxGeometry args={[1.6, 0.05, 1.1]} />
+          <meshStandardMaterial color="#1a2240" roughness={0.2} transparent opacity={0.75} metalness={0.05} />
+        </mesh>
+        {/* Mounting holes on upper deck */}
+        {[[-0.5, -0.35], [-0.5, 0.35], [0.5, -0.35], [0.5, 0.35]].map(([x, z], i) => (
+          <mesh key={`hole-${i}`} position={[x, 0.43, z]}>
+            <cylinderGeometry args={[0.03, 0.03, 0.01, 8]} />
+            <meshStandardMaterial color="#0a1020" transparent opacity={0.5} />
+          </mesh>
+        ))}
+
+        {/* ── Hex standoffs between plates ── */}
+        {[[-0.6, -0.42], [-0.6, 0.42], [0.6, -0.42], [0.6, 0.42]].map(([x, z], i) => (
+          <mesh key={`standoff-${i}`} position={[x, 0.2, z]}>
+            <cylinderGeometry args={[0.04, 0.04, 0.34, 6]} />
+            <meshStandardMaterial color={GOLD} metalness={0.85} roughness={0.15} />
+          </mesh>
+        ))}
+
+        {/* ── Yellow TT DC gear motors ── */}
         {[[-0.5, -0.55], [-0.5, 0.55]].map(([x, z], i) => (
-          <group key={`motor-${i}`} position={[x, -0.05, z]}>
+          <group key={`motor-${i}`} position={[x, -0.02, z]}>
+            {/* Motor body (yellow translucent) */}
             <mesh rotation={[Math.PI / 2, 0, 0]} castShadow>
-              <cylinderGeometry args={[0.1, 0.1, 0.3, 10]} />
-              <meshStandardMaterial color="#222" roughness={0.3} metalness={0.4} />
+              <boxGeometry args={[0.28, 0.22, 0.22]} />
+              <meshStandardMaterial color="#e8c820" roughness={0.4} transparent opacity={0.9} />
             </mesh>
-            {/* Motor shaft */}
-            <mesh position={[0, 0, z > 0 ? -0.22 : 0.22]} rotation={[Math.PI / 2, 0, 0]}>
-              <cylinderGeometry args={[0.02, 0.02, 0.1, 6]} />
+            {/* Gearbox section */}
+            <mesh position={[0.18, 0, 0]} rotation={[Math.PI / 2, 0, 0]} castShadow>
+              <boxGeometry args={[0.1, 0.22, 0.22]} />
+              <meshStandardMaterial color="#ccb020" roughness={0.5} transparent opacity={0.85} />
+            </mesh>
+            {/* Motor shaft (extends to wheel) */}
+            <mesh position={[0, 0, z > 0 ? -0.18 : 0.18]} rotation={[Math.PI / 2, 0, 0]}>
+              <cylinderGeometry args={[0.025, 0.025, 0.14, 8]} />
               <meshStandardMaterial color={SILVER} metalness={0.9} roughness={0.1} />
             </mesh>
-            {/* Terminals */}
-            <mesh position={[0.08, 0.08, 0]}>
-              <boxGeometry args={[0.04, 0.06, 0.04]} />
-              <meshStandardMaterial color="#cc2222" roughness={0.4} />
+            {/* Motor terminals */}
+            <mesh position={[-0.14, 0.08, 0]}>
+              <boxGeometry args={[0.03, 0.06, 0.02]} />
+              <meshStandardMaterial color="#cc2222" roughness={0.3} />
             </mesh>
-            <mesh position={[-0.08, 0.08, 0]}>
-              <boxGeometry args={[0.04, 0.06, 0.04]} />
-              <meshStandardMaterial color="#222" roughness={0.4} />
+            <mesh position={[-0.14, -0.08, 0]}>
+              <boxGeometry args={[0.03, 0.06, 0.02]} />
+              <meshStandardMaterial color="#111" roughness={0.3} />
+            </mesh>
+            {/* Speed encoder disc */}
+            <mesh position={[0.24, 0, 0]} rotation={[Math.PI / 2, 0, 0]}>
+              <cylinderGeometry args={[0.08, 0.08, 0.005, 16]} />
+              <meshStandardMaterial color="#222" roughness={0.3} />
             </mesh>
           </group>
         ))}
-        {/* L298N driver board */}
-        <mesh position={[0, 0.08, 0]} castShadow>
-          <boxGeometry args={[0.55, 0.06, 0.55]} />
-          <meshStandardMaterial color="#cc2222" roughness={0.6} />
-        </mesh>
-        {/* Arduino on top deck */}
-        <mesh position={[0, 0.42, 0]} castShadow>
-          <boxGeometry args={[0.9, 0.06, 0.6]} />
-          <meshStandardMaterial color="#006d5b" roughness={0.6} />
-        </mesh>
-        {/* Battery pack */}
-        <mesh position={[0.3, -0.08, 0]} castShadow>
-          <boxGeometry args={[0.6, 0.15, 0.45]} />
-          <meshStandardMaterial color="#222" roughness={0.4} />
-        </mesh>
-        {/* Ultrasonic sensor on front */}
-        <group position={[-0.92, 0.05, 0]}>
+
+        {/* ── Drive wheels (black rubber with spokes) ── */}
+        {[[-0.5, -0.75], [-0.5, 0.75]].map(([x, z], i) => {
+          const ref = i === 0 ? wheelL : wheelR;
+          return (
+            <group key={`wheel-${i}`} position={[x, -0.02, z]}>
+              {/* Tire */}
+              <mesh ref={ref} rotation={[0, 0, Math.PI / 2]} castShadow>
+                <cylinderGeometry args={[0.26, 0.26, 0.15, 20]} />
+                <meshStandardMaterial color="#1a1a1a" roughness={0.9} />
+              </mesh>
+              {/* Tire tread pattern */}
+              <mesh rotation={[0, 0, Math.PI / 2]}>
+                <cylinderGeometry args={[0.265, 0.265, 0.14, 20, 1, true]} />
+                <meshStandardMaterial color="#333" roughness={0.95} />
+              </mesh>
+              {/* Wheel hub (yellow to match motor) */}
+              <mesh rotation={[0, 0, Math.PI / 2]}>
+                <cylinderGeometry args={[0.12, 0.12, 0.16, 8]} />
+                <meshStandardMaterial color="#e8c820" roughness={0.4} />
+              </mesh>
+              {/* Hub spokes */}
+              {[0, Math.PI / 4, Math.PI / 2, (3 * Math.PI) / 4].map((angle, j) => (
+                <mesh key={j} position={[0, 0, 0]} rotation={[angle, 0, Math.PI / 2]}>
+                  <boxGeometry args={[0.14, 0.02, 0.02]} />
+                  <meshStandardMaterial color="#ccaa00" roughness={0.4} />
+                </mesh>
+              ))}
+            </group>
+          );
+        })}
+
+        {/* ── Ball caster wheel (front) ── */}
+        <group ref={casterRef} position={[0.7, -0.18, 0]}>
+          {/* Housing */}
           <mesh castShadow>
-            <boxGeometry args={[0.1, 0.12, 0.5]} />
-            <meshStandardMaterial color="#0066cc" roughness={0.6} />
+            <cylinderGeometry args={[0.08, 0.1, 0.06, 12]} />
+            <meshStandardMaterial color="#c0c0c0" metalness={0.7} roughness={0.2} />
           </mesh>
-          {[-0.12, 0.12].map((z, i) => (
-            <mesh key={i} position={[0.06, 0.02, z]} rotation={[0, Math.PI / 2, 0]} castShadow>
-              <cylinderGeometry args={[0.07, 0.07, 0.06, 12]} />
-              <meshStandardMaterial color={SILVER} metalness={0.8} roughness={0.1} />
+          {/* Ball */}
+          <mesh position={[0, -0.06, 0]}>
+            <sphereGeometry args={[0.06, 12, 12]} />
+            <meshStandardMaterial color="#aaa" metalness={0.8} roughness={0.15} />
+          </mesh>
+        </group>
+
+        {/* ── Arduino Uno on upper deck ── */}
+        <group position={[0.1, 0.48, 0]}>
+          <mesh castShadow>
+            <boxGeometry args={[0.9, 0.06, 0.6]} />
+            <meshStandardMaterial color="#006d5b" roughness={0.6} metalness={0.1} />
+          </mesh>
+          {/* ATmega chip */}
+          <mesh position={[0.1, 0.04, 0]}>
+            <boxGeometry args={[0.25, 0.03, 0.12]} />
+            <meshStandardMaterial color="#111" roughness={0.3} />
+          </mesh>
+          {/* USB connector */}
+          <mesh position={[-0.4, 0.06, 0]}>
+            <boxGeometry args={[0.16, 0.1, 0.2]} />
+            <meshStandardMaterial color="#c0c0c0" metalness={0.8} roughness={0.2} />
+          </mesh>
+          {/* Pin headers */}
+          {Array.from({ length: 10 }).map((_, j) => (
+            <mesh key={j} position={[-0.25 + j * 0.06, 0.06, -0.25]}>
+              <boxGeometry args={[0.02, 0.08, 0.02]} />
+              <meshStandardMaterial color={GOLD} metalness={0.9} roughness={0.1} />
             </mesh>
           ))}
         </group>
+
+        {/* ── L298N motor driver on lower deck ── */}
+        <group position={[-0.1, 0.06, 0]}>
+          <mesh castShadow>
+            <boxGeometry args={[0.55, 0.05, 0.55]} />
+            <meshStandardMaterial color="#cc2222" roughness={0.6} />
+          </mesh>
+          {/* Heatsink */}
+          <mesh position={[0, 0.05, 0]} castShadow>
+            <boxGeometry args={[0.25, 0.12, 0.2]} />
+            <meshStandardMaterial color="#222" metalness={0.6} roughness={0.3} />
+          </mesh>
+          {/* Screw terminals */}
+          {[-0.22, 0.22].map((z, k) => (
+            <mesh key={k} position={[0.22, 0.04, z]}>
+              <boxGeometry args={[0.08, 0.04, 0.12]} />
+              <meshStandardMaterial color="#00aa44" roughness={0.5} />
+            </mesh>
+          ))}
+        </group>
+
+        {/* ── 4xAA battery holder (underneath) ── */}
+        <group position={[0.2, -0.08, 0]}>
+          <mesh castShadow>
+            <boxGeometry args={[0.65, 0.16, 0.5]} />
+            <meshStandardMaterial color="#1a1a1a" roughness={0.6} />
+          </mesh>
+          {/* Battery terminals */}
+          <mesh position={[0.33, 0.04, 0]}>
+            <boxGeometry args={[0.04, 0.06, 0.08]} />
+            <meshStandardMaterial color="#cc0000" roughness={0.3} />
+          </mesh>
+          <mesh position={[-0.33, 0.04, 0]}>
+            <boxGeometry args={[0.04, 0.06, 0.08]} />
+            <meshStandardMaterial color="#222" roughness={0.3} />
+          </mesh>
+        </group>
+
+        {/* ── HC-SR04 ultrasonic sensor (front bracket) ── */}
+        <group position={[0.92, 0.1, 0]}>
+          {/* Mounting bracket */}
+          <mesh castShadow>
+            <boxGeometry args={[0.06, 0.2, 0.55]} />
+            <meshStandardMaterial color="#333" roughness={0.4} metalness={0.3} />
+          </mesh>
+          {/* Sensor PCB */}
+          <mesh position={[0.06, 0.02, 0]} castShadow>
+            <boxGeometry args={[0.06, 0.12, 0.5]} />
+            <meshStandardMaterial color="#0066cc" roughness={0.6} />
+          </mesh>
+          {/* Transducers */}
+          {[-0.12, 0.12].map((z, k) => (
+            <mesh key={k} position={[0.1, 0.02, z]} rotation={[0, Math.PI / 2, 0]} castShadow>
+              <cylinderGeometry args={[0.08, 0.08, 0.06, 14]} />
+              <meshStandardMaterial color={SILVER} metalness={0.85} roughness={0.1} />
+            </mesh>
+          ))}
+          {/* Crystal on PCB */}
+          <mesh position={[0.07, 0.02, 0]} castShadow>
+            <cylinderGeometry args={[0.015, 0.015, 0.02, 6]} />
+            <meshStandardMaterial color="#c0c0c0" metalness={0.8} roughness={0.2} />
+          </mesh>
+        </group>
+
+        {/* ── Wiring (colored cables between components) ── */}
+        {/* Motor wires */}
+        {[
+          { from: [-0.3, 0.06, -0.55], to: [-0.5, -0.02, -0.45], color: "#ff2222" },
+          { from: [-0.3, 0.06, 0.55], to: [-0.5, -0.02, 0.45], color: "#222222" },
+          { from: [0.1, 0.45, -0.25], to: [-0.1, 0.1, -0.22], color: "#ff8800" },
+          { from: [0.1, 0.45, 0.25], to: [-0.1, 0.1, 0.22], color: "#ffff00" },
+        ].map((wire, i) => {
+          const start = new THREE.Vector3(...(wire.from as [number, number, number]));
+          const end = new THREE.Vector3(...(wire.to as [number, number, number]));
+          const mid = start.clone().add(end).multiplyScalar(0.5);
+          mid.y += 0.1;
+          const curve = new THREE.QuadraticBezierCurve3(start, mid, end);
+          const points = curve.getPoints(8);
+          const geo = new THREE.BufferGeometry().setFromPoints(points);
+          return (
+            <line key={`wire-${i}`}>
+              <primitive object={geo} attach="geometry" />
+              <lineBasicMaterial color={wire.color} linewidth={2} />
+            </line>
+          );
+        })}
+
+        {/* ── On/Off toggle switch ── */}
+        <mesh position={[-0.7, 0.08, 0]} castShadow>
+          <boxGeometry args={[0.12, 0.06, 0.08]} />
+          <meshStandardMaterial color="#333" roughness={0.4} />
+        </mesh>
+        <mesh position={[-0.68, 0.12, 0]}>
+          <boxGeometry args={[0.04, 0.04, 0.03]} />
+          <meshStandardMaterial color="#cc0000" roughness={0.3} />
+        </mesh>
+
         <Text position={[0, 0.65, 0]} fontSize={0.1} color="#aaffaa" rotation={[-Math.PI / 2, 0, 0]} anchorX="center">
           2WD Robot Car
         </Text>
-        <SelectionBox size={[2.1, 0.8, 1.4]} visible={selected} />
-        <CuboidCollider args={[0.9, 0.3, 0.6]} />
+        <SelectionBox size={[2.1, 0.8, 1.6]} visible={selected} />
+        <CuboidCollider args={[0.9, 0.3, 0.7]} />
       </group>
     </RigidBody>
   );
