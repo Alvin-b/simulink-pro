@@ -317,8 +317,9 @@ export function RealisticArduinoUno({ component }: { component: SimComponent }) 
         {ledOn && <pointLight position={[0.7, 0.3, 0.3]} color="#ffaa00" intensity={0.4} distance={1.5} />}
 
         {/* ── "ARDUINO UNO" silkscreen ── */}
+        {/* @ts-ignore - drei Text prop types */}
         <Text position={[-0.2, H/2+0.005, 0.3]} fontSize={0.1} color="#ffffff" anchorX="center"
-          rotation={[-Math.PI/2,0,0]} transparent opacity={0.4}>
+          rotation={[-Math.PI/2,0,0]} transparent={true} opacity={0.4}>
           ARDUINO UNO
         </Text>
 
