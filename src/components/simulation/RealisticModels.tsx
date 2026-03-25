@@ -705,7 +705,7 @@ export function Robot2WDCar({ component }: { component: any }) {
                 <meshStandardMaterial color="#ddddcc" roughness={0.5} metalness={0.2} />
               </mesh>
               <mesh position={[-0.04, 0, 0]}>
-                <cylinderGeometry args={[0.08, 0.08, 0.02, 16]} rotation={[0, 0, Math.PI / 2] as any} />
+                <cylinderGeometry args={[0.08, 0.08, 0.02, 16]} />
                 <meshStandardMaterial color="#111" roughness={0.8} />
               </mesh>
             </group>
