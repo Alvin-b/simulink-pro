@@ -246,8 +246,8 @@ export function useAdvancedArduinoVM() {
             log("info", `Servo.write(${clamped}°)`);
           },
 
-          read: () => {
-            return component?.properties.angle ?? 90;
+          read: (): number => {
+            return Number(component?.properties.angle ?? 90);
           },
 
           detach: () => {

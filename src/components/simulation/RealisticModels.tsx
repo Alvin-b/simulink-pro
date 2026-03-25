@@ -1087,7 +1087,7 @@ export function HCSr04({ component }: { component: any }) {
         {/* Beam visualization */}
         {simState === "running" && distance > 5 && (
           <mesh position={[0, 0.08, 0.22]}>
-            <coneGeometry args={[distance * 0.018, distance * 0.02, 10]} rotation={[-Math.PI/2,0,0] as any} />
+            <coneGeometry args={[distance * 0.018, distance * 0.02, 10]} />
             <meshBasicMaterial color="#44aaff" transparent opacity={0.05} />
           </mesh>
         )}

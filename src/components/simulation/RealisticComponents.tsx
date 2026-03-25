@@ -819,7 +819,7 @@ export function RealisticNEMA17({ component }: { component: SimComponent }) {
         {/* Mounting holes */}
         {[[-0.27, -0.27], [-0.27, 0.27], [0.27, -0.27], [0.27, 0.27]].map(([x, y], i) => (
           <mesh key={i} position={[x, y, 0.34]}>
-            <cylinderGeometry args={[0.025, 0.025, 0.05, 6]} rotation={[Math.PI/2,0,0] as any} />
+            <cylinderGeometry args={[0.025, 0.025, 0.05, 6]} />
             <meshStandardMaterial color="#111" roughness={0.5} />
           </mesh>
         ))}

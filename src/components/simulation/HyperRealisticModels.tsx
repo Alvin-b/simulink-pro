@@ -608,7 +608,7 @@ export function HyperRealisticF450({ component }: { component: any }) {
         [-0.100, -0.100, -0.050],
         [0.100, -0.100, -0.050],
       ].map((leg, i) => (
-        <mesh key={i} position={leg}>
+        <mesh key={i} position={leg as [number, number, number]}>
           <cylinderGeometry args={[0.004, 0.004, 0.080, 8]} />
           <meshStandardMaterial color="#666666" />
         </mesh>

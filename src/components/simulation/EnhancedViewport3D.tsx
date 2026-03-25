@@ -19,10 +19,12 @@ function SimComponentRenderer({ component }: { component: any }) {
 
   useFrame(() => {
     if (groupRef.current) {
-      // Update position/rotation from simulation state
-      groupRef.current.position.set(...component.position);
-      groupRef.current.rotation.set(...component.rotation);
-      groupRef.current.scale.set(...component.scale);
+      const pos = component.position as [number, number, number];
+      const rot = component.rotation as [number, number, number];
+      const scl = component.scale as [number, number, number];
+      groupRef.current.position.set(pos[0], pos[1], pos[2]);
+      groupRef.current.rotation.set(rot[0], rot[1], rot[2]);
+      groupRef.current.scale.set(scl[0], scl[1], scl[2]);
     }
   });
 
