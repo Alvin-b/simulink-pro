@@ -198,7 +198,7 @@ export function useAdvancedArduinoVM() {
           },
 
           write: (data: string | number | Uint8Array) => {
-            iot.sendSerial(componentId, data);
+            iot.sendSerial(componentId, typeof data === 'number' ? String(data) : data);
           },
 
           available: () => {
