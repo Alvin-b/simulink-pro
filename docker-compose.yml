@@ -1,0 +1,49 @@
+version: "3.9"
+
+services:
+  studio:
+    build:
+      context: .
+      dockerfile: Dockerfile.studio
+    ports:
+      - "8080:8080"
+    environment:
+      VITE_ORCHESTRATOR_URL: http://localhost:4010
+      VITE_ENGINE_CORE_URL: http://localhost:4041
+      VITE_COPILOT_URL: http://localhost:4042
+      VITE_DEVICE_RUNTIME_URL: http://localhost:4043
+    depends_on:
+      - orchestrator
+      - simforge-core
+      - ai-copilot
+      - device-runtime
+
+  orchestrator:
+    build:
+      context: .
+      dockerfile: server/orchestrator/Dockerfile
+    ports:
+      - "4010:4010"
+
+  simforge-core:
+    build:
+      context: .
+      dockerfile: services/simforge-core-rs/Dockerfile
+    environment:
+      SIMFORGE_CORE_PORT: 4041
+    ports:
+      - "4041:4041"
+
+  ai-copilot:
+    build:
+      context: .
+      dockerfile: services/ai-copilot-py/Dockerfile
+    ports:
+      - "4042:4042"
+
+  device-runtime:
+    build:
+      context: .
+      dockerfile: services/device-runtime-py/Dockerfile
+    ports:
+      - "4043:4043"

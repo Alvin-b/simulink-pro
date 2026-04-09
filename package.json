@@ -10,6 +10,9 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "orchestrator": "node server/orchestrator/server.mjs",
+    "stack:up": "docker compose up --build",
+    "stack:down": "docker compose down",
+    "stack:logs": "docker compose logs -f",
     "test": "vitest run",
     "test:watch": "vitest"
   },

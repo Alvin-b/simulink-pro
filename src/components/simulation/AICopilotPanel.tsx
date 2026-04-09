@@ -1,5 +1,6 @@
 import { Bot, Cpu, SearchCode, Sparkles, Wrench } from "lucide-react";
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { diagnoseWorkflow, getCopilotBaseUrl, suggestWorkflow, type CopilotDiagnoseReply, type CopilotSuggestReply } from "@/lib/serviceMeshClient";
 import { useSimulationStore } from "@/stores/simulationStore";
 
 const capabilityCards = [
@@ -23,6 +24,13 @@ const capabilityCards = [
 export function AICopilotPanel() {
   const components = useSimulationStore((state) => state.components);
   const selected = useSimulationStore((state) => state.selectedComponent);
+  const projectName = useSimulationStore((state) => state.projectName);
+  const activeDomains = useSimulationStore((state) => state.activeDomains);
+  const selectedCodeTarget = useSimulationStore((state) => state.selectedCodeTarget);
+  const consoleMessages = useSimulationStore((state) => state.consoleMessages);
+  const [suggestionReply, setSuggestionReply] = useState<CopilotSuggestReply | null>(null);
+  const [diagnosisReply, setDiagnosisReply] = useState<CopilotDiagnoseReply | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const suggestion = useMemo(() => {
     const selectedComponent = components.find((component) => component.id === selected);
@@ -35,6 +43,40 @@ export function AICopilotPanel() {
     }
     return `Suggested next step: connect ${selectedComponent.name} to a controller target and add observability channels for simulation replay.`;
   }, [components, selected]);
+
+  useEffect(() => {
+    const selectedComponent = components.find((component) => component.id === selected);
+
+    const load = async () => {
+      try {
+        const [suggested, diagnosed] = await Promise.all([
+          suggestWorkflow({
+            project_name: projectName,
+            component_type: selectedComponent?.type ?? null,
+            target_runtime: selectedCodeTarget,
+            active_domains: activeDomains,
+            component_types: components.map((component) => component.type),
+            telemetry_channels: ["run.timeline", "embedded.pin-trace"],
+          }),
+          diagnoseWorkflow({
+            project_name: projectName,
+            target_runtime: selectedCodeTarget,
+            component_types: components.map((component) => component.type),
+            active_domains: activeDomains,
+            telemetry_channels: ["run.timeline", "embedded.pin-trace"],
+            recent_console: consoleMessages.slice(-8).map((message) => message.msg),
+          }),
+        ]);
+        setSuggestionReply(suggested);
+        setDiagnosisReply(diagnosed);
+        setError(null);
+      } catch (serviceError) {
+        setError(serviceError instanceof Error ? serviceError.message : "Copilot backend unavailable");
+      }
+    };
+
+    void load();
+  }, [activeDomains, components, consoleMessages, projectName, selected, selectedCodeTarget]);
 
   return (
     <section className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
@@ -53,7 +95,8 @@ export function AICopilotPanel() {
           <Cpu className="h-4 w-4 text-cyan-100" />
           <p className="text-xs font-semibold text-white">Live recommendation</p>
         </div>
-        <p className="mt-2 text-xs leading-6 text-slate-200">{suggestion}</p>
+        <p className="mt-2 text-xs leading-6 text-slate-200">{suggestionReply?.summary ?? suggestion}</p>
+        <p className="mt-2 text-[10px] uppercase tracking-[0.16em] text-cyan-100/70">Service endpoint: {getCopilotBaseUrl()}</p>
       </div>
 
       <div className="mt-4 grid gap-2">
@@ -70,6 +113,39 @@ export function AICopilotPanel() {
           );
         })}
       </div>
+
+      {suggestionReply ? (
+        <div className="mt-4 rounded-xl border border-white/5 bg-slate-900/70 p-4">
+          <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Suggested Artifacts</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {suggestionReply.suggested_artifacts.map((artifact) => (
+              <span key={artifact} className="rounded-full border border-white/10 bg-white/[0.04] px-3 py-1 text-[10px] text-slate-100">
+                {artifact}
+              </span>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {diagnosisReply ? (
+        <div className="mt-4 rounded-xl border border-white/5 bg-slate-900/70 p-4">
+          <p className="text-[10px] uppercase tracking-[0.18em] text-slate-400">Diagnosis</p>
+          <p className="mt-2 text-[11px] leading-6 text-slate-300">{diagnosisReply.diagnosis}</p>
+          <div className="mt-3 space-y-2">
+            {diagnosisReply.bottlenecks.slice(0, 3).map((item) => (
+              <div key={item} className="rounded-lg border border-white/5 bg-white/[0.03] px-3 py-2 text-[11px] text-slate-200">
+                {item}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {error ? (
+        <div className="mt-4 rounded-xl border border-rose-400/20 bg-rose-400/10 p-3 text-[11px] leading-5 text-rose-100">
+          {error}
+        </div>
+      ) : null}
     </section>
   );
 }

@@ -71,3 +71,62 @@ Those pieces are still prototype-grade, but the repo now also includes:
 - A native Unreal workspace plan under [native/unreal](native/unreal)
 
 For the industrial target architecture, see [docs/INDUSTRIAL_STACK.md](docs/INDUSTRIAL_STACK.md).
+
+## Polyglot Runtime Direction
+
+This project should not stay as a browser-only TypeScript simulator. The stronger architecture is intentionally polyglot:
+
+- TypeScript/React for the studio, authoring tools, and interactive visualization.
+- Rust in [services/simforge-core-rs](services/simforge-core-rs) for deterministic run planning, engine cataloging, and orchestration-critical logic.
+- Python in [services/ai-copilot-py](services/ai-copilot-py) for diagnostics, design assistance, and graph-aware recommendations.
+- Python in [services/device-runtime-py](services/device-runtime-py) for runtime artifact validation, compatibility checks, and device binding preparation.
+- Protobuf contracts in [contracts/engine-api.proto](contracts/engine-api.proto) to keep orchestration and engine boundaries explicit.
+
+### Current Service Roles
+
+1. `simforge-core-rs`
+   Runs as an HTTP service on port `4041`, exposes `/engines`, `/plan`, and `/health`, and owns deterministic execution planning.
+2. `simforge-ai-copilot`
+   Runs as an HTTP service on port `4042` and provides `/suggest`, `/diagnose`, and `/health`.
+3. `simforge-device-runtime`
+   Runs as an HTTP service on port `4043` and provides `/artifacts/register`, `/artifacts/validate`, `/runs/prepare`, and `/health`.
+
+## Service-Wired Studio
+
+The React studio is now wired to the backend services:
+
+- The code workspace uses the Rust core and Python device runtime to validate artifacts, synthesize execution plans, and prepare runtime bindings.
+- The AI copilot panel uses the Python copilot service for graph-aware recommendations and diagnosis.
+- The workspace control panel shows health for the orchestrator, Rust core, and Python services.
+
+## Multi-Service Stack
+
+Run the full system with Docker Compose:
+
+```bash
+npm run stack:up
+```
+
+Service endpoints:
+
+- Studio: `http://localhost:8080`
+- Orchestrator: `http://localhost:4010`
+- Rust core: `http://localhost:4041`
+- AI copilot: `http://localhost:4042`
+- Device runtime: `http://localhost:4043`
+
+Stop the stack with:
+
+```bash
+npm run stack:down
+```
+
+### Why This Matters
+
+Engineering software benefits from using different languages for different constraints:
+
+- Deterministic orchestration and strongly modeled execution paths belong in Rust.
+- Analysis, diagnostics, and workflow intelligence are efficient to express in Python.
+- Highly interactive studio UX still belongs in TypeScript.
+
+That is the direction this repository is now taking. The frontend is the operator surface, not the entire system.

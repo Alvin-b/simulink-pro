@@ -1,5 +1,6 @@
 import { Activity, Cloud, CloudOff, RadioTower, RefreshCw, Users2 } from "lucide-react";
 import { useEffect, useState } from "react";
+import { getCopilotHealth, getCoreHealth, getDeviceRuntimeHealth, getCoreBaseUrl, getCopilotBaseUrl, getDeviceRuntimeBaseUrl, type ServiceHealth } from "@/lib/serviceMeshClient";
 import {
   appendTelemetry,
   createRun,
@@ -38,6 +39,9 @@ export function WorkspacePanel() {
 
   const [connectionState, setConnectionState] = useState<ConnectionState>("checking");
   const [health, setHealth] = useState<OrchestratorHealth | null>(null);
+  const [coreHealth, setCoreHealth] = useState<ServiceHealth | null>(null);
+  const [copilotHealth, setCopilotHealth] = useState<ServiceHealth | null>(null);
+  const [runtimeHealth, setRuntimeHealth] = useState<ServiceHealth | null>(null);
   const [projects, setProjects] = useState<OrchestratorProject[]>([]);
   const [runs, setRuns] = useState<OrchestratorRun[]>([]);
   const [presence, setPresence] = useState<OrchestratorPresence[]>([]);
@@ -54,6 +58,20 @@ export function WorkspacePanel() {
         listPresence(projectId),
       ]);
       setHealth(healthResult);
+      try {
+        const [coreResult, copilotResult, runtimeResult] = await Promise.all([
+          getCoreHealth(),
+          getCopilotHealth(),
+          getDeviceRuntimeHealth(),
+        ]);
+        setCoreHealth(coreResult);
+        setCopilotHealth(copilotResult);
+        setRuntimeHealth(runtimeResult);
+      } catch {
+        setCoreHealth(null);
+        setCopilotHealth(null);
+        setRuntimeHealth(null);
+      }
       setProjects(projectsResult);
       setRuns(runsResult);
       setPresence(presenceResult);
@@ -62,6 +80,9 @@ export function WorkspacePanel() {
     } catch (refreshError) {
       setConnectionState("offline");
       setHealth(null);
+      setCoreHealth(null);
+      setCopilotHealth(null);
+      setRuntimeHealth(null);
       setError(refreshError instanceof Error ? refreshError.message : "Unable to reach orchestrator");
     }
   };
@@ -182,6 +203,25 @@ export function WorkspacePanel() {
         <div className="rounded-xl border border-white/5 bg-slate-900/70 p-3">
           <p className="text-[10px] uppercase tracking-[0.18em] text-slate-500">Presence</p>
           <p className="mt-2 text-lg font-semibold text-white">{presence.length}</p>
+        </div>
+      </div>
+
+      <div className="mt-4 rounded-2xl border border-white/10 bg-slate-900/70 p-4">
+        <p className="text-xs font-semibold text-white">Service Mesh</p>
+        <div className="mt-3 grid gap-2 sm:grid-cols-3">
+          {[
+            { label: "Orchestrator", value: getOrchestratorBaseUrl(), health },
+            { label: "Rust Core", value: getCoreBaseUrl(), health: coreHealth },
+            { label: "AI + Runtime", value: `${getCopilotBaseUrl()} / ${getDeviceRuntimeBaseUrl()}`, health: copilotHealth && runtimeHealth ? { status: "ok", service: "service-mesh" } : null },
+          ].map((service) => (
+            <div key={service.label} className="rounded-xl border border-white/5 bg-white/[0.03] p-3">
+              <p className="text-[10px] uppercase tracking-[0.16em] text-slate-500">{service.label}</p>
+              <p className="mt-2 break-all font-mono text-[11px] text-slate-100">{service.value}</p>
+              <p className={`mt-2 text-[10px] uppercase tracking-[0.16em] ${service.health ? "text-emerald-200" : "text-rose-200"}`}>
+                {service.health ? "online" : "offline"}
+              </p>
+            </div>
+          ))}
         </div>
       </div>
 

@@ -12,9 +12,10 @@ import {
   TerminalSquare,
   X,
 } from "lucide-react";
+import { planRun, prepareRuntimeRun, validateArtifact } from "@/lib/serviceMeshClient";
 import { useSimulationStore } from "@/stores/simulationStore";
 import { getCodeTargetsForComponentTypes } from "@/modules";
-import { firmwareProfiles } from "@/platform/firmwareProfiles";
+import { firmwareProfiles, getFirmwareProfileForComponentType } from "@/platform/firmwareProfiles";
 
 type FlashStatus = "idle" | "compiling" | "deploying" | "done";
 
@@ -45,6 +46,10 @@ export function CodeEditor() {
   const activateCodeTarget = useSimulationStore((state) => state.activateCodeTarget);
   const codeArtifactsByTarget = useSimulationStore((state) => state.codeArtifactsByTarget);
   const exportProjectDocument = useSimulationStore((state) => state.exportProjectDocument);
+  const projectId = useSimulationStore((state) => state.projectId);
+  const projectName = useSimulationStore((state) => state.projectName);
+  const activeDomains = useSimulationStore((state) => state.activeDomains);
+  const wires = useSimulationStore((state) => state.wires);
 
   const [status, setStatus] = useState<FlashStatus>("idle");
   const [statusMessage, setStatusMessage] = useState("Workspace synchronized");
@@ -63,13 +68,12 @@ export function CodeEditor() {
 
   const activeTarget = availableTargets.find((target) => target.id === selectedCodeTarget) ?? availableTargets[0];
   const activeWorkspaceFiles = (activeTarget && codeArtifactsByTarget[activeTarget.id]) || activeTarget?.files || [];
-  const matchingProfiles = firmwareProfiles.filter((profile) =>
-    activeTarget?.label.toLowerCase().includes("arduino") ? profile.id === "fw.arduino.avr"
-    : activeTarget?.label.toLowerCase().includes("esp32") ? profile.id === "fw.esp32.freertos"
-    : activeTarget?.label.toLowerCase().includes("stm32") ? profile.id === "fw.stm32.control"
-    : activeTarget?.label.toLowerCase().includes("microcomputer") ? profile.id === "fw.rpi.edge"
-    : false,
-  );
+  const activeComponent = components.find((component) => component.id === selectedComponent);
+  const activeProfile =
+    (activeComponent ? getFirmwareProfileForComponentType(activeComponent.type) : null) ??
+    selectedTypes.map((type) => getFirmwareProfileForComponentType(type)).find(Boolean) ??
+    null;
+  const matchingProfiles = firmwareProfiles.filter((profile) => selectedTypes.some((type) => profile.componentTypes.includes(type)));
 
   useEffect(() => {
     if (activeTarget && activeTarget.id !== selectedCodeTarget) {
@@ -78,8 +82,6 @@ export function CodeEditor() {
   }, [activeTarget, activateCodeTarget, selectedCodeTarget]);
 
   if (!showEditor) return null;
-
-  const activeComponent = components.find((component) => component.id === selectedComponent);
 
   const handleLoadTemplate = (content: string, name: string) => {
     setCode(content);
@@ -90,7 +92,63 @@ export function CodeEditor() {
     setStatus("compiling");
     setStatusMessage("Compiling target runtime and validating interfaces...");
     log("info", `Compile started for ${activeTarget?.label ?? "selected target"}`);
-    await new Promise((resolve) => setTimeout(resolve, 800));
+
+    const entryFile = activeWorkspaceFiles[0];
+    const board = activeProfile?.board ?? activeComponent?.name ?? projectName;
+    const interfaces = activeProfile?.interfaces ?? Object.keys(activeComponent?.pins ?? {}).slice(0, 8);
+    let telemetryChannels: string[] = [];
+
+    try {
+      const validation = await validateArtifact({
+        board,
+        target: activeTarget?.id ?? "workspace-target",
+        language: entryFile?.language ?? (activeTarget?.language ?? "txt").toLowerCase(),
+        entry_file: entryFile?.name ?? "main.txt",
+        interfaces,
+        resource_profile: activeDomains.length >= 3 ? "validation" : activeDomains.length >= 2 ? "engineering" : "interactive",
+      });
+
+      if (!validation.compatible) {
+        setStatus("idle");
+        setStatusMessage(validation.warnings[0] ?? "Runtime validation failed");
+        log("error", `Runtime validation failed: ${validation.warnings.join(" | ")}`);
+        return;
+      }
+
+      const plan = await planRun({
+        project_id: projectId,
+        scenario: "Primary Validation Scenario",
+        active_domains: activeDomains,
+        components: components.map((component) => ({
+          id: component.id,
+          component_type: component.type,
+        })),
+        connections: wires.map((wire) => ({
+          source: { node_id: wire.from.componentId },
+          target: { node_id: wire.to.componentId },
+        })),
+      });
+      telemetryChannels = plan.telemetry_channels.map((channel) => channel.id);
+      log("info", `Execution plan ready: ${plan.fidelity_profile} at ${plan.orchestration_tick_hz} Hz`);
+      if (plan.warnings.length > 0) {
+        log("warning", plan.warnings.join(" | "));
+      }
+
+      await prepareRuntimeRun({
+        project_id: projectId,
+        target: activeTarget?.id ?? "workspace-target",
+        board,
+        interfaces,
+        scenario: "Primary Validation Scenario",
+      });
+    } catch (error) {
+      setStatus("idle");
+      const message = error instanceof Error ? error.message : "Unable to reach execution services";
+      setStatusMessage(message);
+      log("error", message);
+      return;
+    }
+
     setStatus("deploying");
     setStatusMessage("Deploying to simulation runtime and attaching traces...");
     await new Promise((resolve) => setTimeout(resolve, 700));
@@ -98,6 +156,9 @@ export function CodeEditor() {
     setStatusMessage("Deployment complete. Runtime traces streaming.");
     setSimState("running");
     log("success", `Runtime attached to ${activeTarget?.label ?? "workspace target"}`);
+    if (telemetryChannels.length > 0) {
+      log("info", `Telemetry channels: ${telemetryChannels.join(", ")}`);
+    }
   };
 
   const saveWorkspace = () => {
@@ -187,8 +248,8 @@ export function CodeEditor() {
           <div className="grid gap-3 border-b border-white/10 px-4 py-3 xl:grid-cols-[1fr_auto_auto]">
             <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
               <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Runtime Profile</p>
-              <p className="mt-1 text-sm font-semibold text-white">{activeTarget?.label ?? "No target available"}</p>
-              <p className="mt-1 text-xs text-slate-300">{activeTarget?.features.join(" • ")}</p>
+              <p className="mt-1 text-sm font-semibold text-white">{activeProfile?.board ?? activeTarget?.label ?? "No target available"}</p>
+              <p className="mt-1 text-xs text-slate-300">{(activeProfile?.interfaces ?? activeTarget?.features ?? []).join(" • ")}</p>
             </div>
             <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
               <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Pipeline State</p>
@@ -252,10 +313,46 @@ export function CodeEditor() {
                 </div>
               </div>
 
+              {activeProfile ? (
+                <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Board Profile</p>
+                  <p className="mt-2 text-sm font-semibold text-white">{activeProfile.board}</p>
+                  <p className="mt-1 text-[11px] leading-5 text-slate-300">{activeProfile.runtime}</p>
+                  <p className="mt-2 text-[10px] uppercase tracking-[0.18em] text-slate-500">{activeProfile.toolchain}</p>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {activeProfile.engineeringUseCases.map((useCase) => (
+                      <span key={useCase} className="rounded-full border border-white/10 bg-slate-900/70 px-3 py-1 text-[10px] text-slate-100">
+                        {useCase}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {matchingProfiles.length > 0 ? (
+                <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                  <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Available Firmware</p>
+                  <div className="mt-3 space-y-2">
+                    {matchingProfiles.map((profile) => (
+                      <button
+                        key={profile.id}
+                        onClick={() => handleLoadTemplate(profile.sampleFiles[0]?.content ?? "", profile.sampleFiles[0]?.name ?? profile.board)}
+                        className="w-full rounded-xl border border-white/10 bg-slate-900/70 px-3 py-2 text-left transition hover:bg-slate-900"
+                      >
+                        <p className="text-xs font-semibold text-white">{profile.board}</p>
+                        <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-slate-500">
+                          {profile.language} • {profile.runtime}
+                        </p>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
               <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
                 <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Interfaces</p>
                 <div className="mt-3 flex flex-wrap gap-2">
-                  {activeTarget?.features.map((feature) => (
+                  {(activeProfile?.interfaces ?? activeTarget?.features ?? []).map((feature) => (
                     <span key={feature} className="rounded-full border border-cyan-300/15 bg-cyan-400/10 px-3 py-1 text-[10px] text-cyan-50">
                       {feature}
                     </span>
