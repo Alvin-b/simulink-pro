@@ -59,6 +59,13 @@ export function PropertiesPanel() {
       </div>
 
       <div className="flex-1 space-y-4 overflow-y-auto p-4">
+        {component.properties.fault ? (
+          <section className="rounded-2xl border border-rose-400/20 bg-rose-400/10 p-4">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-rose-100">Electrical Fault</p>
+            <p className="mt-2 text-xs leading-6 text-rose-50">{String(component.properties.faultReason || "Invalid circuit detected.")}</p>
+          </section>
+        ) : null}
+
         <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
           <div className="mb-3 flex items-center gap-2">
             <SlidersHorizontal className="h-4 w-4 text-cyan-200" />

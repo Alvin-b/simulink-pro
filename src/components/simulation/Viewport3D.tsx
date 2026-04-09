@@ -1,5 +1,6 @@
 import {
   RealisticArduinoUno,
+  RealisticBattery,
   RealisticDCMotor,
   RealisticDHT22,
   RealisticHCSR04,
@@ -94,6 +95,8 @@ function SimComponentRenderer({ component }: { component: any }) {
     case "dc-motor":
     case "dc-motor-encoder":
       return <RealisticDCMotor component={component} />;
+    case "lipo-battery":
+      return <RealisticBattery component={component} />;
     case "nema17-stepper":
       return <RealisticNEMA17 component={component} />;
     case "l298n-driver":

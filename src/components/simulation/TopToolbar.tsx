@@ -1,4 +1,4 @@
-import { FolderOpen, Layers, Pause, Play, RotateCcw, Save, Settings2, Wrench } from "lucide-react";
+import { FolderOpen, Layers, Link2, Pause, Play, RotateCcw, Save, Settings2, Wrench } from "lucide-react";
 import { useRef } from "react";
 import { useSimulationStore } from "@/stores/simulationStore";
 import { engineAdapters, projectPlugins } from "@/platform/pluginSystem";
@@ -9,6 +9,8 @@ export function TopToolbar() {
   const showCodeEditor = useSimulationStore((state) => state.showCodeEditor);
   const setShowCodeEditor = useSimulationStore((state) => state.setShowCodeEditor);
   const resetSim = useSimulationStore((state) => state.resetSimulation);
+  const wiringMode = useSimulationStore((state) => state.wiringMode);
+  const setWiringMode = useSimulationStore((state) => state.setWiringMode);
   const setFirmwareCode = useSimulationStore((state) => state.setFirmwareCode);
   const log = useSimulationStore((state) => state.log);
   const firmwareCode = useSimulationStore((state) => state.firmwareCode);
@@ -129,6 +131,19 @@ export function TopToolbar() {
           }`}
         >
           Runtime IDE
+        </button>
+
+        <button
+          onClick={() => setWiringMode({ active: !wiringMode.active, from: null })}
+          className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-semibold transition ${
+            wiringMode.active
+              ? "bg-amber-300 text-slate-950"
+              : "border border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.08]"
+          }`}
+          title="Enable component wiring mode"
+        >
+          <Link2 className="h-3.5 w-3.5" />
+          {wiringMode.active ? "Wiring On" : "Wire"}
         </button>
 
         <button

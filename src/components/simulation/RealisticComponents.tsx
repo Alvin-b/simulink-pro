@@ -681,15 +681,11 @@ export function RealisticDCMotor({ component }: { component: SimComponent }) {
   const { select, selected } = useSelect(component.id);
   const shaftRef = useRef<THREE.Mesh>(null);
   const simState = useSimulationStore((s) => s.simState);
+  const wiringMode = useSimulationStore((s) => s.wiringMode);
 
-  // Motor speed from IN1/IN2 pins (H-bridge logic)
-  const in1 = component.pins["IN1"]?.value ?? 0;
-  const in2 = component.pins["IN2"]?.value ?? 0;
-  const speed = (component.properties.speed as number) ?? 0;
-
-  // Real DC motor logic: IN1=HIGH, IN2=LOW → forward; IN1=LOW, IN2=HIGH → reverse
-  const direction = in1 > in2 ? 1 : in1 < in2 ? -1 : 0;
-  const motorSpeed = direction !== 0 ? Math.max(speed, 1) : speed;
+  const rpm = (component.properties.rpm as number) ?? 0;
+  const motorSpeed = Math.abs(rpm) / 600;
+  const direction = rpm === 0 ? 0 : rpm > 0 ? 1 : -1;
 
   useFrame((_, delta) => {
     if (simState === "running" && shaftRef.current && motorSpeed > 0) {
@@ -767,8 +763,14 @@ export function RealisticDCMotor({ component }: { component: SimComponent }) {
         {simState === "running" && motorSpeed > 0 && (
           <pointLight position={[0, 0.3, 0]} color="#4488ff" intensity={0.3} distance={1.5} />
         )}
+        {wiringMode.active && (
+          <>
+            <PinDot pos={[-0.3, 0.28, -0.03]} pinId="POS" componentId={component.id} label="Motor +" color="#ff4444" />
+            <PinDot pos={[-0.3, 0.28, 0.03]} pinId="NEG" componentId={component.id} label="Motor -" color="#444444" />
+          </>
+        )}
         <Text position={[0, 0.3, 0]} fontSize={0.07} color="#aaaaaa" anchorX="center" rotation={[-Math.PI/2,0,0]}>
-          DC Motor
+          {`DC Motor ${Math.round(rpm)} rpm`}
         </Text>
         {selected && <SelectionOutline size={[0.85, 0.55, 0.55]} />}
         <CuboidCollider args={[0.35, 0.22, 0.22]} />
@@ -842,6 +844,8 @@ export function RealisticNEMA17({ component }: { component: SimComponent }) {
 
 export function RealisticL298N({ component }: { component: SimComponent }) {
   const { select, selected } = useSelect(component.id);
+  const wiringMode = useSimulationStore((s) => s.wiringMode);
+  const fault = Boolean(component.properties.fault);
 
   return (
     <RigidBody type={component.isStatic ? "fixed" : "dynamic"} position={component.position} mass={0.03}>
@@ -849,7 +853,7 @@ export function RealisticL298N({ component }: { component: SimComponent }) {
         {/* PCB - red */}
         <mesh castShadow receiveShadow>
           <boxGeometry args={[0.85, 0.08, 0.75]} />
-          <meshStandardMaterial color="#cc2222" roughness={0.6} metalness={0.05} />
+          <meshStandardMaterial color={fault ? "#7f1d1d" : "#cc2222"} roughness={0.6} metalness={0.05} emissive={fault ? "#7f1d1d" : "#000"} emissiveIntensity={fault ? 0.6 : 0} />
         </mesh>
         {/* L298N IC */}
         <ICChip pos={[0, 0.07, 0]} size={[0.35, 0.06, 0.35]} label="L298N" />
@@ -898,8 +902,59 @@ export function RealisticL298N({ component }: { component: SimComponent }) {
         <Text position={[0, 0.07, 0.3]} fontSize={0.06} color="#ffaaaa" anchorX="center" rotation={[-Math.PI/2,0,0]}>
           L298N
         </Text>
+        {wiringMode.active && (
+          <>
+            <PinDot pos={[-0.35, 0.14, -0.1]} pinId="12V" componentId={component.id} label="12V" color="#ff4444" />
+            <PinDot pos={[-0.35, 0.14, 0]} pinId="GND" componentId={component.id} label="GND" color="#333333" />
+            <PinDot pos={[-0.35, 0.14, 0.1]} pinId="5V" componentId={component.id} label="5V" color="#ff8800" />
+            <PinDot pos={[0.3, 0.14, -0.15]} pinId="OUT1" componentId={component.id} label="OUT1" color="#ff4444" />
+            <PinDot pos={[0.3, 0.14, -0.05]} pinId="OUT2" componentId={component.id} label="OUT2" color="#cccccc" />
+            <PinDot pos={[-0.3, 0.14, -0.32]} pinId="IN1" componentId={component.id} label="IN1" />
+            <PinDot pos={[-0.2, 0.14, -0.32]} pinId="IN2" componentId={component.id} label="IN2" />
+            <PinDot pos={[-0.1, 0.14, -0.32]} pinId="ENA" componentId={component.id} label="ENA" color="#66ccff" />
+          </>
+        )}
         {selected && <SelectionOutline size={[0.95, 0.35, 0.85]} />}
         <CuboidCollider args={[0.425, 0.12, 0.375]} />
+      </group>
+    </RigidBody>
+  );
+}
+
+export function RealisticBattery({ component }: { component: SimComponent }) {
+  const { select, selected } = useSelect(component.id);
+  const wiringMode = useSimulationStore((s) => s.wiringMode);
+
+  return (
+    <RigidBody type={component.isStatic ? "fixed" : "dynamic"} position={component.position} mass={0.18}>
+      <group onClick={select}>
+        <mesh castShadow receiveShadow>
+          <boxGeometry args={[0.9, 0.26, 0.5]} />
+          <meshStandardMaterial color="#1f2937" roughness={0.55} metalness={0.08} />
+        </mesh>
+        <mesh position={[0.42, 0.1, 0]} castShadow>
+          <boxGeometry args={[0.06, 0.12, 0.16]} />
+          <meshStandardMaterial color="#d97706" roughness={0.3} />
+        </mesh>
+        <mesh position={[-0.12, 0.18, -0.08]} castShadow>
+          <cylinderGeometry args={[0.03, 0.03, 0.08, 8]} />
+          <meshStandardMaterial color="#ff4444" metalness={0.7} roughness={0.2} />
+        </mesh>
+        <mesh position={[-0.12, 0.18, 0.08]} castShadow>
+          <cylinderGeometry args={[0.03, 0.03, 0.08, 8]} />
+          <meshStandardMaterial color="#333333" metalness={0.7} roughness={0.2} />
+        </mesh>
+        {wiringMode.active && (
+          <>
+            <PinDot pos={[-0.12, 0.24, -0.08]} pinId="POS" componentId={component.id} label="Battery +" color="#ff4444" />
+            <PinDot pos={[-0.12, 0.24, 0.08]} pinId="NEG" componentId={component.id} label="Battery -" color="#333333" />
+          </>
+        )}
+        <Text position={[0, 0.18, 0]} fontSize={0.06} color="#f3f4f6" anchorX="center" rotation={[-Math.PI / 2, 0, 0]}>
+          LiPo Battery
+        </Text>
+        {selected && <SelectionOutline size={[1.02, 0.38, 0.62]} />}
+        <CuboidCollider args={[0.45, 0.13, 0.25]} />
       </group>
     </RigidBody>
   );

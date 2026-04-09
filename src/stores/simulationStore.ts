@@ -187,7 +187,7 @@ const componentCreators: Record<string, (id: string, pos: [number, number, numbe
   "nema17-stepper": (id, pos) => comp(id, "nema17-stepper", "NEMA17 Stepper", pos, makePins([["A+", "INPUT", "Coil A+"], ["A-", "INPUT", "Coil A-"], ["B+", "INPUT", "Coil B+"], ["B-", "INPUT", "Coil B-"]]), { stepsPerRev: 200, rpm: 0 }, { mass: 220, category: "actuator" }),
   "dc-motor": (id, pos) => comp(id, "dc-motor", "DC Motor", pos, makePins([["POS", "INPUT", "Positive"], ["NEG", "INPUT", "Negative"]]), { rpm: 0, nominalVoltage: 6 }, { mass: 40, category: "actuator" }),
   "dc-motor-encoder": (id, pos) => comp(id, "dc-motor-encoder", "DC Motor w/ Encoder", pos, makePins([["POS", "INPUT", "Positive"], ["NEG", "INPUT", "Negative"], ["ENC_A", "OUTPUT", "Encoder A"], ["ENC_B", "OUTPUT", "Encoder B"]]), { rpm: 0, ticks: 0 }, { mass: 55, category: "actuator" }),
-  "l298n-driver": (id, pos) => comp(id, "l298n-driver", "L298N Driver", pos, makePins([["IN1", "INPUT", "IN1"], ["IN2", "INPUT", "IN2"], ["ENA", "PWM", "ENA"], ["OUT1", "OUTPUT", "OUT1"], ["OUT2", "OUTPUT", "OUT2"]]), { channels: 2, supplyVoltage: 12 }, { isStatic: true, mass: 20, category: "actuator" }),
+  "l298n-driver": (id, pos) => comp(id, "l298n-driver", "L298N Driver", pos, makePins([["12V", "INPUT", "Motor Supply"], ["GND", "INPUT", "Ground"], ["5V", "INPUT", "Logic Supply"], ["IN1", "INPUT", "IN1"], ["IN2", "INPUT", "IN2"], ["ENA", "PWM", "ENA"], ["OUT1", "OUTPUT", "OUT1"], ["OUT2", "OUTPUT", "OUT2"]]), { channels: 2, supplyVoltage: 12, enabled: false, fault: false, faultReason: "" }, { isStatic: true, mass: 20, category: "actuator" }),
   "a4988-driver": (id, pos) => comp(id, "a4988-driver", "A4988 Driver", pos, makePins([["STEP", "INPUT", "Step"], ["DIR", "INPUT", "Direction"], ["EN", "INPUT", "Enable"], ["VMOT", "INPUT", "Motor V"], ["GND", "INPUT", "Ground"]]), { microsteps: 16 }, { isStatic: true, mass: 6, category: "actuator" }),
   "solenoid-valve": (id, pos) => comp(id, "solenoid-valve", "Solenoid Valve", pos, makePins([["V+", "INPUT", "Power"], ["GND", "INPUT", "Ground"], ["CTRL", "INPUT", "Control"]]), { open: false }, { mass: 60, category: "actuator" }),
   "linear-actuator": (id, pos) => comp(id, "linear-actuator", "Linear Actuator", pos, makePins([["EXTEND", "INPUT", "Extend"], ["RETRACT", "INPUT", "Retract"], ["V+", "INPUT", "Power"], ["GND", "INPUT", "Ground"]]), { extension: 0 }, { mass: 140, category: "actuator" }),
@@ -341,6 +341,18 @@ function buildEnvironment(preset: EnvironmentPreset): SimComponent[] {
         componentCreators["env-obstacle"]("obstacle-1", [2.2, 0.25, 2.6]),
       ];
   }
+}
+
+function isControllerType(type: string) {
+  return type.startsWith("arduino") || type.startsWith("esp32") || type.startsWith("stm32") || type.includes("raspberry-pi");
+}
+
+function isPowerSourceType(type: string) {
+  return type === "lipo-battery" || type === "solar-panel" || type === "buck-converter" || type === "lm7805";
+}
+
+function isMotorType(type: string) {
+  return type === "dc-motor" || type === "dc-motor-encoder";
 }
 
 const initialEnvironment = buildEnvironment("robotics-lab");
@@ -558,6 +570,12 @@ export const useSimulationStore = create<SimulationStore>((set, get) => ({
     const color = WIRE_COLORS[get().wires.length % WIRE_COLORS.length];
     set((state) => ({ wires: [...state.wires, { id, from, to, color }] }));
     get().log("success", `Wire: ${from.componentId}.${from.pinId} → ${to.componentId}.${to.pinId}`);
+    get().propagateSignals();
+    for (const component of get().components) {
+      if (component.properties.fault) {
+        get().log("error", `${component.name}: ${String(component.properties.faultReason)}`);
+      }
+    }
   },
   removeWire: (id) => set((state) => ({ wires: state.wires.filter((wire) => wire.id !== id) })),
   setWiringMode: (wiringMode) => set({ wiringMode }),
@@ -610,38 +628,174 @@ export const useSimulationStore = create<SimulationStore>((set, get) => ({
   },
   propagateSignals: () => {
     const state = get();
+    const componentMap = new Map(
+      state.components.map((component) => [
+        component.id,
+        {
+          ...component,
+          pins: Object.fromEntries(Object.entries(component.pins).map(([pinId, pin]) => [pinId, { ...pin }])),
+          properties: {
+            ...component.properties,
+            fault: false,
+            faultReason: "",
+            wiringStatus: "ok",
+          },
+        },
+      ]),
+    );
+
+    const connections = new Map<string, Array<{ componentId: string; pinId: string }>>();
+    const pushConnection = (componentId: string, pinId: string, peer: { componentId: string; pinId: string }) => {
+      const key = `${componentId}:${pinId}`;
+      const next = connections.get(key) ?? [];
+      next.push(peer);
+      connections.set(key, next);
+    };
+
     for (const wire of state.wires) {
-      const fromComp = state.components.find((component) => component.id === wire.from.componentId);
-      const toComp = state.components.find((component) => component.id === wire.to.componentId);
+      pushConnection(wire.from.componentId, wire.from.pinId, { componentId: wire.to.componentId, pinId: wire.to.pinId });
+      pushConnection(wire.to.componentId, wire.to.pinId, { componentId: wire.from.componentId, pinId: wire.from.pinId });
+    }
+
+    const peersFor = (componentId: string, pinId: string) =>
+      (connections.get(`${componentId}:${pinId}`) ?? [])
+        .map((peer) => {
+          const component = componentMap.get(peer.componentId);
+          return component ? { component, pinId: peer.pinId } : null;
+        })
+        .filter((entry): entry is { component: SimComponent; pinId: string } => Boolean(entry));
+
+    const setFault = (componentId: string, reason: string) => {
+      const component = componentMap.get(componentId);
+      if (!component) return;
+      component.properties.fault = true;
+      component.properties.faultReason = reason;
+      component.properties.wiringStatus = "fault";
+    };
+
+    for (const wire of state.wires) {
+      const fromComp = componentMap.get(wire.from.componentId);
+      const toComp = componentMap.get(wire.to.componentId);
       if (!fromComp || !toComp) continue;
       const fromPin = fromComp.pins[wire.from.pinId];
-      if (fromPin && (fromPin.mode === "OUTPUT" || fromPin.mode === "PWM")) {
-        state.updatePinValue(wire.to.componentId, wire.to.pinId, fromPin.value);
+      const toPin = toComp.pins[wire.to.pinId];
+      if (!fromPin || !toPin) continue;
+
+      if ((fromPin.mode === "OUTPUT" || fromPin.mode === "PWM") && (toPin.mode === "OUTPUT" || toPin.mode === "PWM")) {
+        setFault(fromComp.id, `Conflicting driven outputs on ${wire.from.pinId}`);
+        setFault(toComp.id, `Conflicting driven outputs on ${wire.to.pinId}`);
+        continue;
+      }
+
+      if (fromPin.mode === "OUTPUT" || fromPin.mode === "PWM") {
+        toComp.pins[wire.to.pinId] = { ...toPin, value: fromPin.value };
+      } else if (toPin.mode === "OUTPUT" || toPin.mode === "PWM") {
+        fromComp.pins[wire.from.pinId] = { ...fromPin, value: toPin.value };
       }
     }
 
-    for (const component of state.components) {
+    for (const component of componentMap.values()) {
       if (component.type === "led") {
-        state.updateComponentProperty(component.id, "brightness", component.pins.ANODE?.value ?? 0);
+        component.properties.brightness = component.pins.ANODE?.value ?? 0;
       }
+
       if (component.type === "led-rgb") {
-        state.updateComponentProperty(component.id, "red", component.pins.R?.value ?? 0);
-        state.updateComponentProperty(component.id, "green", component.pins.G?.value ?? 0);
-        state.updateComponentProperty(component.id, "blue", component.pins.B?.value ?? 0);
+        component.properties.red = component.pins.R?.value ?? 0;
+        component.properties.green = component.pins.G?.value ?? 0;
+        component.properties.blue = component.pins.B?.value ?? 0;
       }
+
       if (component.type.startsWith("servo")) {
         const signal = component.pins.SIGNAL;
-        if (signal) state.updateComponentProperty(component.id, "angle", (signal.value / 255) * 180);
+        const powerConnected = peersFor(component.id, "5V").some(({ component: peer }) => isPowerSourceType(peer.type) || peer.type === "l298n-driver" || isControllerType(peer.type));
+        const groundConnected = peersFor(component.id, "GND").length > 0;
+        if (signal) component.properties.angle = (signal.value / 255) * 180;
+        if (!powerConnected || !groundConnected) {
+          setFault(component.id, "Servo requires both 5V and GND connections.");
+        }
       }
+
       if (component.type === "buzzer") {
         const signal = component.pins.SIGNAL;
-        state.updateComponentProperty(component.id, "active", !!signal && signal.value > 0);
+        component.properties.active = !!signal && signal.value > 0;
       }
+
       if (component.type === "soil-moisture") {
         const moisture = component.pins.AO?.value ?? component.properties.moisture;
-        state.updateComponentProperty(component.id, "moisture", typeof moisture === "number" ? moisture : 0);
+        component.properties.moisture = typeof moisture === "number" ? moisture : 0;
+      }
+
+      if (component.type === "l298n-driver") {
+        const hasMotorSupply = peersFor(component.id, "12V").some(({ component: peer, pinId }) => isPowerSourceType(peer.type) && (pinId === "POS" || pinId === "VOUT+" || pinId === "VOUT"));
+        const hasGround = peersFor(component.id, "GND").length > 0;
+        const ena = component.pins.ENA?.value ?? 0;
+        const in1 = component.pins.IN1?.value ?? 0;
+        const in2 = component.pins.IN2?.value ?? 0;
+        const enabled = hasMotorSupply && hasGround && ena > 0;
+        component.properties.enabled = enabled;
+
+        if ((in1 > 0 || in2 > 0 || ena > 0) && !hasMotorSupply) {
+          setFault(component.id, "Motor driver is being commanded without motor supply on 12V.");
+        }
+
+        component.pins.OUT1.value = enabled && in1 > in2 ? ena : 0;
+        component.pins.OUT2.value = enabled && in2 > in1 ? ena : 0;
+      }
+
+      if (isMotorType(component.type)) {
+        const positivePeers = peersFor(component.id, "POS");
+        const negativePeers = peersFor(component.id, "NEG");
+        let rpm = 0;
+        let direction = 0;
+
+        const directControllerConnection = [...positivePeers, ...negativePeers].find(({ component: peer }) => isControllerType(peer.type));
+        if (directControllerConnection) {
+          setFault(component.id, "DC motor cannot be driven directly from a microcontroller pin. Use a motor driver and external supply.");
+          setFault(directControllerConnection.component.id, "Unsafe actuator load detected on logic-level controller pin.");
+        } else {
+          const driverPositive = positivePeers.find(({ component: peer, pinId }) => peer.type === "l298n-driver" && pinId === "OUT1");
+          const driverNegative = negativePeers.find(({ component: peer, pinId }) => peer.type === "l298n-driver" && pinId === "OUT2");
+          const batteryPositive = positivePeers.find(({ component: peer, pinId }) => isPowerSourceType(peer.type) && pinId === "POS");
+          const batteryNegative = negativePeers.find(({ component: peer, pinId }) => peer.type === "lipo-battery" && pinId === "NEG");
+
+          if (driverPositive && driverNegative) {
+            const driver = driverPositive.component;
+            const out1 = driver.pins.OUT1?.value ?? 0;
+            const out2 = driver.pins.OUT2?.value ?? 0;
+            if ((driver.properties.fault as boolean) === true) {
+              setFault(component.id, String(driver.properties.faultReason || "Motor driver fault"));
+            } else if (out1 > 0 || out2 > 0) {
+              direction = out1 > out2 ? 1 : -1;
+              rpm = Math.round(((Math.max(out1, out2) / 255) * 3200) * direction);
+            }
+          } else if (batteryPositive && batteryNegative) {
+            rpm = 2400;
+            direction = 1;
+            component.properties.wiringStatus = "uncontrolled";
+          } else if (positivePeers.length > 0 || negativePeers.length > 0) {
+            setFault(component.id, "Motor circuit is incomplete. Connect both motor terminals to a valid driver or supply.");
+          }
+        }
+
+        component.properties.rpm = rpm;
+        if (component.type === "dc-motor-encoder") {
+          component.properties.ticks = Math.round(Math.abs(rpm) * 0.5);
+        }
+      }
+
+      if (isControllerType(component.type)) {
+        for (const [pinId] of Object.entries(component.pins)) {
+          const actuatorPeer = peersFor(component.id, pinId).find(({ component: peer, pinId: peerPin }) =>
+            (isMotorType(peer.type) && (peerPin === "POS" || peerPin === "NEG")) || (peer.type === "lipo-battery" && pinId.startsWith("D")),
+          );
+          if (actuatorPeer) {
+            setFault(component.id, "Unsafe high-current or battery connection detected on a controller logic pin.");
+          }
+        }
       }
     }
+
+    set({ components: Array.from(componentMap.values()) });
   },
   loadEnvironment: (environmentPreset) => {
     const envComps = buildEnvironment(environmentPreset);
