@@ -8,6 +8,13 @@ message ProjectReference {
   string document_uri = 3;
 }
 
+message EngineDescriptor {
+  string engine_id = 1;
+  string domain = 2;
+  string fidelity = 3;
+  repeated string capabilities = 4;
+}
+
 message EngineRunRequest {
   string engine_id = 1;
   ProjectReference project = 2;
@@ -19,6 +26,24 @@ message EngineRunReply {
   string status = 2;
 }
 
+message EngineCatalogReply {
+  repeated EngineDescriptor engines = 1;
+}
+
+message ArtifactDescriptor {
+  string target = 1;
+  string board = 2;
+  string language = 3;
+  string entry_file = 4;
+  repeated string interfaces = 5;
+}
+
+message ArtifactValidationReply {
+  string status = 1;
+  bool compatible = 2;
+  repeated string warnings = 3;
+}
+
 message TelemetrySample {
   string run_id = 1;
   string channel = 2;
@@ -27,6 +52,8 @@ message TelemetrySample {
 }
 
 service EngineControl {
+  rpc ListEngines(ProjectReference) returns (EngineCatalogReply);
   rpc StartRun(EngineRunRequest) returns (EngineRunReply);
   rpc PublishTelemetry(TelemetrySample) returns (EngineRunReply);
+  rpc ValidateArtifact(ArtifactDescriptor) returns (ArtifactValidationReply);
 }

@@ -1,0 +1,6 @@
+[workspace]
+members = [
+  "rust/control-plane-bridge",
+  "rust/telemetry-hub",
+]
+resolver = "2"

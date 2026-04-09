@@ -1,0 +1,15 @@
+{
+  "FileVersion": 3,
+  "Version": 1,
+  "VersionName": "0.1.0",
+  "FriendlyName": "SimForge Control Plane",
+  "Description": "Bridges UE5 simulation state with the SimForge web control plane.",
+  "Category": "Simulation",
+  "Modules": [
+    {
+      "Name": "SimForgeControlPlane",
+      "Type": "Runtime",
+      "LoadingPhase": "Default"
+    }
+  ]
+}

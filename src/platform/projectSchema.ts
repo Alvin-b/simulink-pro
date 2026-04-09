@@ -71,6 +71,9 @@ export type SimulationProjectDocument = {
 
 export function inferDomainFromComponentType(type: string): DomainId {
   if (type.startsWith("robot-") || type.startsWith("env-")) return "robotics";
+  if (type.includes("drone") || type.includes("flight-controller") || type.includes("gps") || type.includes("imu-nav") || type.includes("bmp280")) return "aerospace";
+  if (type.includes("battery") || type.includes("solar") || type.includes("buck-converter") || type.includes("ina219") || type.includes("tp4056") || type.includes("mosfet") || type.includes("lm7805")) return "energy";
+  if (type.includes("can-bus") || type.includes("linear-actuator") || type.includes("solenoid") || type.includes("water-level") || type.includes("nema17") || type.includes("a4988")) return "industrial";
   if (type.includes("wifi") || type.includes("zigbee") || type.includes("can-bus") || type.includes("soil") || type.includes("water")) return "iot";
   return "embedded";
 }

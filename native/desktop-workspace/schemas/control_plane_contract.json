@@ -1,0 +1,14 @@
+{
+  "service": "simforge-desktop-control-plane",
+  "version": "0.1.0",
+  "entities": {
+    "project": ["id", "name", "activeDomains", "scene", "software", "collaboration"],
+    "run": ["id", "projectId", "scenario", "status", "fidelity"],
+    "telemetry": ["source", "topic", "time", "payload"]
+  },
+  "transports": ["http", "grpc", "websocket"],
+  "ownership": {
+    "web": ["project authoring", "catalog", "run launch", "review"],
+    "desktop": ["scene execution", "native physics", "asset rendering", "hil runtime"]
+  }
+}

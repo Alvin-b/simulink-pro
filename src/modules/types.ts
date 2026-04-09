@@ -1,4 +1,4 @@
-export type DomainId = "robotics" | "embedded" | "iot";
+export type DomainId = "robotics" | "embedded" | "iot" | "aerospace" | "energy" | "industrial";
 
 export type LibraryItem = {
   name: string;

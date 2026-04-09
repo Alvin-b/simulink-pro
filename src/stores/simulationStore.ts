@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { buildProjectDocument } from "@/platform/projectSchema";
 import { DomainId } from "@/modules/types";
+import { getCatalogComponentBySku } from "@/platform/componentCatalog";
 
 export type PinMode = "INPUT" | "OUTPUT" | "INPUT_PULLUP" | "PWM" | "ANALOG";
 
@@ -10,36 +11,7 @@ export type PinState = {
   label: string;
 };
 
-export type ComponentType =
-  | "arduino-uno" | "arduino-mega" | "arduino-nano"
-  | "esp32-wroom" | "esp8266-nodemcu"
-  | "stm32f103" | "attiny85"
-  | "raspberry-pi-4b" | "raspberry-pi-pico" | "raspberry-pi-zero"
-  | "jetson-nano" | "beaglebone-black"
-  | "hc-sr04" | "dht22" | "dht11" | "bmp280" | "mpu6050"
-  | "ir-sensor" | "pir-sensor" | "ldr-module" | "hx711"
-  | "gps-neo6m" | "soil-moisture" | "mq2-gas" | "water-level"
-  | "line-follower-ir" | "color-sensor-tcs3200" | "lidar-lite"
-  | "servo-sg90" | "servo-mg996r" | "nema17-stepper"
-  | "dc-motor" | "dc-motor-encoder" | "l298n-driver" | "a4988-driver"
-  | "solenoid-valve" | "linear-actuator"
-  | "led" | "led-rgb" | "resistor" | "capacitor" | "diode" | "transistor-2n2222"
-  | "buzzer" | "relay-module" | "mosfet-irf540"
-  | "button" | "potentiometer" | "rotary-encoder" | "joystick"
-  | "keypad-4x4" | "touch-sensor"
-  | "oled-ssd1306" | "lcd-16x2" | "lcd-20x4" | "tft-ili9341"
-  | "led-matrix-8x8" | "seven-segment"
-  | "nrf24l01" | "hc05-bluetooth" | "hc06-bluetooth"
-  | "sim800l-gsm" | "lora-sx1276" | "rfid-rc522"
-  | "wifi-module" | "zigbee-module" | "can-bus-mcp2515"
-  | "lm7805" | "lipo-battery" | "buck-converter" | "solar-panel"
-  | "ina219-current" | "tp4056-charger"
-  | "breadboard" | "breadboard-mini" | "perfboard"
-  | "robot-2wd-car" | "robot-sumo" | "robot-4wd-car" | "robot-arm-4dof"
-  | "robot-arm-6dof" | "robot-hexapod" | "robot-quadcopter"
-  | "robot-tank-tracks" | "robot-humanoid"
-  | "env-wall" | "env-ramp" | "env-obstacle" | "env-line-track"
-  | "env-table" | "env-conveyor";
+export type ComponentType = string;
 
 export interface SimComponent {
   id: string;
@@ -53,6 +25,10 @@ export interface SimComponent {
   isStatic: boolean;
   mass: number;
   category: string;
+  sourceSku?: string;
+  vendor?: string;
+  domain?: DomainId;
+  simulationLevel?: string;
 }
 
 export interface Wire {
@@ -128,6 +104,48 @@ function comp(
     category: "passive",
     ...meta,
   };
+}
+
+function pinsFromProtocols(protocols: string[]) {
+  const normalized = protocols.map((protocol) => protocol.toUpperCase());
+  const defs: [string, PinMode, string][] = [["VCC", "INPUT", "Supply"], ["GND", "INPUT", "Ground"]];
+  if (normalized.some((protocol) => protocol.includes("GPIO"))) defs.push(["SIG", "INPUT", "General Signal"]);
+  if (normalized.some((protocol) => protocol.includes("PWM"))) defs.push(["PWM", "PWM", "PWM"]);
+  if (normalized.some((protocol) => protocol.includes("ADC") || protocol.includes("ANALOG"))) defs.push(["AOUT", "ANALOG", "Analog Signal"]);
+  if (normalized.some((protocol) => protocol.includes("UART"))) defs.push(["TX", "OUTPUT", "UART TX"], ["RX", "INPUT", "UART RX"]);
+  if (normalized.some((protocol) => protocol.includes("I2C"))) defs.push(["SDA", "OUTPUT", "I2C SDA"], ["SCL", "OUTPUT", "I2C SCL"]);
+  if (normalized.some((protocol) => protocol.includes("SPI"))) defs.push(["MOSI", "OUTPUT", "SPI MOSI"], ["MISO", "INPUT", "SPI MISO"], ["SCK", "OUTPUT", "SPI Clock"], ["CS", "OUTPUT", "Chip Select"]);
+  if (normalized.some((protocol) => protocol.includes("CAN"))) defs.push(["CANH", "OUTPUT", "CAN High"], ["CANL", "OUTPUT", "CAN Low"]);
+  if (normalized.some((protocol) => protocol.includes("STEP/DIR"))) defs.push(["STEP", "OUTPUT", "Step"], ["DIR", "OUTPUT", "Direction"], ["EN", "OUTPUT", "Enable"]);
+  return makePins(defs);
+}
+
+function buildCatalogTwin(id: string, sku: string, pos: [number, number, number]): SimComponent | null {
+  const catalogComponent = getCatalogComponentBySku(sku);
+  if (!catalogComponent) return null;
+
+  return comp(
+    id,
+    catalogComponent.componentType,
+    catalogComponent.name,
+    pos,
+    pinsFromProtocols(catalogComponent.protocols),
+    {
+      packageType: catalogComponent.packageType,
+      protocols: catalogComponent.protocols.join(", "),
+      engineeringNotes: catalogComponent.notes,
+    },
+    {
+      category: catalogComponent.category,
+      isStatic: catalogComponent.category !== "robotics" && catalogComponent.category !== "aerospace",
+      mass: catalogComponent.category === "robotics" || catalogComponent.category === "aerospace" ? 300 : 14,
+      sourceSku: catalogComponent.sku,
+      vendor: catalogComponent.vendor,
+      domain: catalogComponent.domain,
+      simulationLevel: catalogComponent.simulationLevel,
+      scale: catalogComponent.category === "robotics" || catalogComponent.category === "aerospace" ? [1, 1, 1] : [0.72, 0.2, 0.48],
+    },
+  );
 }
 
 const boardDefaults = { isStatic: true, mass: 12, category: "microcontroller" } as const;
@@ -372,6 +390,7 @@ interface SimulationStore {
   activateCodeTarget: (target: string, files?: CodeWorkspaceFile[]) => void;
   setSimState: (state: SimulationState) => void;
   addComponent: (type: string) => void;
+  addCatalogComponent: (sku: string) => void;
   removeComponent: (id: string) => void;
   selectComponent: (id: string | null) => void;
   updateComponentPosition: (id: string, pos: [number, number, number]) => void;
@@ -467,6 +486,44 @@ export const useSimulationStore = create<SimulationStore>((set, get) => ({
     const component = creator(id, pos);
     set((state) => ({ components: [...state.components, component], selectedComponent: component.id }));
     get().log("success", `Added ${component.name} to scene`);
+  },
+  addCatalogComponent: (sku) => {
+    const catalogComponent = getCatalogComponentBySku(sku);
+    if (!catalogComponent) {
+      get().log("error", `Unknown catalog SKU: ${sku}`);
+      return;
+    }
+
+    const id = `${catalogComponent.componentType}-${++compCounter}`;
+    const pos: [number, number, number] = [Math.random() * 6 - 3, 1.4, Math.random() * 6 - 3];
+    const creator = componentCreators[catalogComponent.componentType];
+    const component = creator ? creator(id, pos) : buildCatalogTwin(id, sku, pos);
+
+    if (!component) {
+      get().log("error", `No simulator twin is available for ${catalogComponent.name}`);
+      return;
+    }
+
+    set((state) => ({
+      components: [
+        ...state.components,
+        {
+          ...component,
+          sourceSku: catalogComponent.sku,
+          vendor: catalogComponent.vendor,
+          domain: catalogComponent.domain,
+          simulationLevel: catalogComponent.simulationLevel,
+          properties: {
+            ...component.properties,
+            marketSku: catalogComponent.sku,
+            vendor: catalogComponent.vendor,
+            simulationLevel: catalogComponent.simulationLevel,
+          },
+        },
+      ],
+      selectedComponent: component.id,
+    }));
+    get().log("success", `Imported ${catalogComponent.name} from the market catalog`);
   },
   removeComponent: (id) => set((state) => ({
     components: state.components.filter((component) => component.id !== id),

@@ -1,9 +1,12 @@
+import { aerospaceDomain } from "./aerospace/domain";
 import { embeddedDomain } from "./embedded/domain";
+import { energyDomain } from "./energy/domain";
+import { industrialDomain } from "./industrial/domain";
 import { iotDomain } from "./iot/domain";
 import { roboticsDomain } from "./robotics/domain";
 import { CodeTargetDefinition, DomainId, DomainModuleDefinition, LibrarySection } from "./types";
 
-export const domainModules: DomainModuleDefinition[] = [roboticsDomain, embeddedDomain, iotDomain];
+export const domainModules: DomainModuleDefinition[] = [roboticsDomain, embeddedDomain, iotDomain, aerospaceDomain, energyDomain, industrialDomain];
 
 export function getDomainModule(domainId: DomainId) {
   return domainModules.find((module) => module.id === domainId) ?? embeddedDomain;
