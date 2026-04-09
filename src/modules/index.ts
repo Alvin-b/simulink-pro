@@ -16,9 +16,10 @@ export function getLibrarySectionsForDomains(domainIds: DomainId[]): LibrarySect
 }
 
 export function getCodeTargetsForComponentTypes(componentTypes: string[]): CodeTargetDefinition[] {
-  return domainModules.flatMap((module) =>
+  const matches = domainModules.flatMap((module) =>
     module.codeTargets.filter((target) => target.componentTypes.some((componentType) => componentTypes.includes(componentType))),
   );
+  return matches.filter((target, index) => matches.findIndex((candidate) => candidate.id === target.id) === index);
 }
 
 export function getDefaultDomainSelection(): DomainId[] {

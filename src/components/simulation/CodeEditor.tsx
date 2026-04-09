@@ -42,7 +42,8 @@ export function CodeEditor() {
   const selectedComponent = useSimulationStore((state) => state.selectedComponent);
   const log = useSimulationStore((state) => state.log);
   const selectedCodeTarget = useSimulationStore((state) => state.selectedCodeTarget);
-  const setSelectedCodeTarget = useSimulationStore((state) => state.setSelectedCodeTarget);
+  const activateCodeTarget = useSimulationStore((state) => state.activateCodeTarget);
+  const codeArtifactsByTarget = useSimulationStore((state) => state.codeArtifactsByTarget);
   const exportProjectDocument = useSimulationStore((state) => state.exportProjectDocument);
 
   const [status, setStatus] = useState<FlashStatus>("idle");
@@ -61,6 +62,7 @@ export function CodeEditor() {
   }, [components, selectedTypes]);
 
   const activeTarget = availableTargets.find((target) => target.id === selectedCodeTarget) ?? availableTargets[0];
+  const activeWorkspaceFiles = (activeTarget && codeArtifactsByTarget[activeTarget.id]) || activeTarget?.files || [];
   const matchingProfiles = firmwareProfiles.filter((profile) =>
     activeTarget?.label.toLowerCase().includes("arduino") ? profile.id === "fw.arduino.avr"
     : activeTarget?.label.toLowerCase().includes("esp32") ? profile.id === "fw.esp32.freertos"
@@ -71,10 +73,9 @@ export function CodeEditor() {
 
   useEffect(() => {
     if (activeTarget && activeTarget.id !== selectedCodeTarget) {
-      setSelectedCodeTarget(activeTarget.id);
-      setCode(activeTarget.files[0]?.content ?? code);
+      activateCodeTarget(activeTarget.id, activeTarget.files);
     }
-  }, [activeTarget, code, selectedCodeTarget, setCode, setSelectedCodeTarget]);
+  }, [activeTarget, activateCodeTarget, selectedCodeTarget]);
 
   if (!showEditor) return null;
 
@@ -143,8 +144,7 @@ export function CodeEditor() {
                 <button
                   key={target.id}
                   onClick={() => {
-                    setSelectedCodeTarget(target.id);
-                    setCode(target.files[0]?.content ?? code);
+                    activateCodeTarget(target.id, target.files);
                   }}
                   className={`w-full rounded-2xl border p-3 text-left transition ${
                     target.id === activeTarget?.id
@@ -166,7 +166,7 @@ export function CodeEditor() {
           <div className="mt-4">
             <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Files</p>
             <div className="mt-2 space-y-2">
-              {activeTarget?.files.map((file) => (
+              {activeWorkspaceFiles.map((file) => (
                 <button
                   key={file.name}
                   onClick={() => handleLoadTemplate(file.content, file.name)}
@@ -218,7 +218,7 @@ export function CodeEditor() {
               <div className="flex items-center justify-between border-b border-white/10 px-4 py-2 text-[11px] text-slate-400">
                 <div className="flex items-center gap-2">
                   <TerminalSquare className="h-3.5 w-3.5" />
-                  <span>{activeTarget?.language ?? "code"}</span>
+                  <span>{activeTarget?.language ?? activeWorkspaceFiles[0]?.language ?? "code"}</span>
                 </div>
                 <span>{code.split("\n").length} lines</span>
               </div>

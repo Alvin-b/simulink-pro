@@ -5,6 +5,7 @@ import { ConsolePanel } from "@/components/simulation/ConsolePanel";
 import { CodeEditor } from "@/components/simulation/CodeEditor";
 import { ElectronicsWorkbench } from "@/components/simulation/ElectronicsWorkbench";
 import { PropertiesPanel } from "@/components/simulation/PropertiesPanel";
+import { SystemReadinessPanel } from "@/components/simulation/SystemReadinessPanel";
 import { TopToolbar } from "@/components/simulation/TopToolbar";
 import { Viewport3D } from "@/components/simulation/Viewport3D";
 import { WorkspacePanel } from "@/components/simulation/WorkspacePanel";
@@ -155,6 +156,10 @@ const Index = () => {
 
             <div className="mt-4">
               <ElectronicsWorkbench />
+            </div>
+
+            <div className="mt-4">
+              <SystemReadinessPanel />
             </div>
 
             <div className="mt-4">

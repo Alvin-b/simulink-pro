@@ -96,7 +96,12 @@ export function buildProjectDocument(params: {
     to: { componentId: string; pinId: string };
     color: string;
   }>;
-  firmwareFiles: Array<{ name: string; content: string; target: string; language: string }>;
+  firmwareFiles: Array<{
+    target: string;
+    language: string;
+    entryFile: string;
+    files: Array<{ name: string; content: string }>;
+  }>;
   activeDomains: DomainId[];
 }): SimulationProjectDocument {
   const now = new Date().toISOString();
@@ -134,12 +139,12 @@ export function buildProjectDocument(params: {
       })),
     },
     software: {
-      artifacts: params.firmwareFiles.map((file, index) => ({
-        id: `${file.target}-${index}`,
-        target: file.target,
-        language: file.language,
-        entryFile: file.name,
-        files: [{ name: file.name, content: file.content }],
+      artifacts: params.firmwareFiles.map((artifact, index) => ({
+        id: `${artifact.target}-${index}`,
+        target: artifact.target,
+        language: artifact.language,
+        entryFile: artifact.entryFile,
+        files: artifact.files,
       })),
     },
     scenarios: [
