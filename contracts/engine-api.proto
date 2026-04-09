@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package simforge.engine.v1;
+
+message ProjectReference {
+  string project_id = 1;
+  string scenario_id = 2;
+  string document_uri = 3;
+}
+
+message EngineRunRequest {
+  string engine_id = 1;
+  ProjectReference project = 2;
+  map<string, string> parameters = 3;
+}
+
+message EngineRunReply {
+  string run_id = 1;
+  string status = 2;
+}
+
+message TelemetrySample {
+  string run_id = 1;
+  string channel = 2;
+  string payload_json = 3;
+  string timestamp = 4;
+}
+
+service EngineControl {
+  rpc StartRun(EngineRunRequest) returns (EngineRunReply);
+  rpc PublishTelemetry(TelemetrySample) returns (EngineRunReply);
+}

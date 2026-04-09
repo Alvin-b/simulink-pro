@@ -1,652 +1,287 @@
-import { useState, useRef, useCallback, useEffect } from "react";
-import { useSimulationStore } from "@/stores/simulationStore";
+import { useEffect, useMemo, useState } from "react";
 import {
-  X, Play, RotateCcw, Upload, FolderOpen, Save, ChevronDown,
-  Cpu, Zap, FileCode, AlertCircle, CheckCircle2, Loader2
+  AlertCircle,
+  Bot,
+  CheckCircle2,
+  Code2,
+  Cpu,
+  Loader2,
+  Network,
+  Play,
+  Save,
+  TerminalSquare,
+  X,
 } from "lucide-react";
+import { useSimulationStore } from "@/stores/simulationStore";
+import { getCodeTargetsForComponentTypes } from "@/modules";
+import { firmwareProfiles } from "@/platform/firmwareProfiles";
 
-// ─── Board profiles ────────────────────────────────────────────
+type FlashStatus = "idle" | "compiling" | "deploying" | "done";
 
-interface BoardProfile {
-  name: string;
-  chip: string;
-  flash: string;
-  sram: string;
-  freq: string;
-  voltage: string;
-  digitalPins: number;
-  analogPins: number;
-  pwmPins: number[];
-  color: string;
-}
-
-const BOARD_PROFILES: Record<string, BoardProfile> = {
-  "arduino-uno": {
-    name: "Arduino Uno R3", chip: "ATmega328P", flash: "32KB", sram: "2KB",
-    freq: "16 MHz", voltage: "5V", digitalPins: 14, analogPins: 6,
-    pwmPins: [3, 5, 6, 9, 10, 11], color: "#006d5b"
-  },
-  "arduino-mega": {
-    name: "Arduino Mega 2560", chip: "ATmega2560", flash: "256KB", sram: "8KB",
-    freq: "16 MHz", voltage: "5V", digitalPins: 54, analogPins: 16,
-    pwmPins: [2,3,4,5,6,7,8,9,10,11,12,13,44,45,46], color: "#006d5b"
-  },
-  "arduino-nano": {
-    name: "Arduino Nano V3", chip: "ATmega328P", flash: "32KB", sram: "2KB",
-    freq: "16 MHz", voltage: "5V", digitalPins: 14, analogPins: 8,
-    pwmPins: [3, 5, 6, 9, 10, 11], color: "#006d5b"
-  },
-  "esp32-wroom": {
-    name: "ESP32-WROOM-32", chip: "ESP32 Xtensa LX6", flash: "4MB", sram: "520KB",
-    freq: "240 MHz", voltage: "3.3V", digitalPins: 34, analogPins: 18,
-    pwmPins: [2,4,5,12,13,14,15,16,17,18,19,21,22,23,25,26,27,32,33], color: "#cc2222"
-  },
-  "esp8266-nodemcu": {
-    name: "NodeMCU ESP8266", chip: "ESP8266EX", flash: "4MB", sram: "80KB",
-    freq: "80 MHz", voltage: "3.3V", digitalPins: 11, analogPins: 1,
-    pwmPins: [0,1,2,3,4,5,12,13,14,15,16], color: "#cc8800"
-  },
-  "raspberry-pi-pico": {
-    name: "Raspberry Pi Pico", chip: "RP2040 (dual-core)", flash: "2MB", sram: "264KB",
-    freq: "133 MHz", voltage: "3.3V", digitalPins: 26, analogPins: 3,
-    pwmPins: [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,26,27,28], color: "#3366cc"
-  },
-  "stm32f103": {
-    name: "STM32F103C8T6 Blue Pill", chip: "ARM Cortex-M3", flash: "64KB", sram: "20KB",
-    freq: "72 MHz", voltage: "3.3V", digitalPins: 37, analogPins: 10,
-    pwmPins: [0,1,2,3,6,7,8,9,10,11], color: "#0044aa"
-  },
-  "attiny85": {
-    name: "ATtiny85 DIP-8", chip: "ATtiny85", flash: "8KB", sram: "512B",
-    freq: "8 MHz", voltage: "5V", digitalPins: 6, analogPins: 4,
-    pwmPins: [0,1,4], color: "#446600"
-  },
+const statusColor = {
+  idle: "text-slate-300",
+  compiling: "text-amber-300",
+  deploying: "text-cyan-300",
+  done: "text-emerald-300",
 };
 
-const MCU_TYPES = new Set(Object.keys(BOARD_PROFILES));
-
-// ─── Code templates ────────────────────────────────────────────
-
-const CODE_TEMPLATES: Record<string, string> = {
-  "Blink LED": `// Blink the built-in LED on pin 13
-void setup() {
-  pinMode(13, OUTPUT);
-  Serial.begin(9600);
-  Serial.println("LED Blink started!");
-}
-
-void loop() {
-  digitalWrite(13, HIGH);
-  Serial.println("LED ON");
-  delay(1000);
-  
-  digitalWrite(13, LOW);
-  Serial.println("LED OFF");
-  delay(1000);
-}`,
-
-  "Servo Sweep": `// Sweep a servo motor from 0° to 180°
-// Connect servo signal to pin 9
-
-void setup() {
-  pinMode(9, OUTPUT);
-  Serial.begin(9600);
-  Serial.println("Servo Sweep started!");
-}
-
-void loop() {
-  // Sweep 0 to 180
-  int angle = 0;
-  while (angle <= 180) {
-    int pwm = (angle * 255) / 180;
-    analogWrite(9, pwm);
-    Serial.println(angle);
-    delay(15);
-    angle = angle + 5;
-  }
-  
-  // Sweep 180 to 0
-  while (angle >= 0) {
-    int pwm = (angle * 255) / 180;
-    analogWrite(9, pwm);
-    Serial.println(angle);
-    delay(15);
-    angle = angle - 5;
-  }
-}`,
-
-  "DC Motor H-Bridge": `// Control DC motor via L298N H-bridge
-// IN1 = pin 4, IN2 = pin 5, ENA = pin 3 (PWM)
-
-void setup() {
-  pinMode(4, OUTPUT);   // IN1
-  pinMode(5, OUTPUT);   // IN2
-  pinMode(3, OUTPUT);   // ENA (PWM speed)
-  Serial.begin(9600);
-  Serial.println("DC Motor Control ready");
-}
-
-void loop() {
-  // Forward at full speed
-  digitalWrite(4, HIGH);
-  digitalWrite(5, LOW);
-  analogWrite(3, 255);
-  Serial.println("Forward");
-  delay(2000);
-  
-  // Stop
-  digitalWrite(4, LOW);
-  digitalWrite(5, LOW);
-  analogWrite(3, 0);
-  Serial.println("Stop");
-  delay(500);
-  
-  // Reverse at half speed
-  digitalWrite(4, LOW);
-  digitalWrite(5, HIGH);
-  analogWrite(3, 128);
-  Serial.println("Reverse");
-  delay(2000);
-  
-  // Stop
-  digitalWrite(4, LOW);
-  digitalWrite(5, LOW);
-  Serial.println("Stop");
-  delay(500);
-}`,
-
-  "Ultrasonic Sensor": `// HC-SR04 distance measurement
-// TRIG = pin 7, ECHO = pin 6
-
-void setup() {
-  pinMode(7, OUTPUT);   // TRIG
-  pinMode(6, INPUT);    // ECHO
-  Serial.begin(9600);
-  Serial.println("Ultrasonic ready");
-}
-
-void loop() {
-  // Trigger pulse
-  digitalWrite(7, LOW);
-  delay(2);
-  digitalWrite(7, HIGH);
-  delay(10);
-  digitalWrite(7, LOW);
-  
-  // Read echo (simulated)
-  Serial.print("Distance: ");
-  Serial.println("measuring...");
-  delay(100);
-}`,
-
-  "ESP32 WiFi Blink": `// ESP32 blink with WiFi status
-// Built-in LED on pin 2
-
-void setup() {
-  pinMode(2, OUTPUT);
-  Serial.begin(115200);
-  Serial.println("ESP32 SimForge VM");
-  Serial.println("WiFi: Simulated Connected");
-}
-
-void loop() {
-  digitalWrite(2, HIGH);
-  Serial.println("LED ON - WiFi Active");
-  delay(500);
-  
-  digitalWrite(2, LOW);
-  Serial.println("LED OFF");
-  delay(500);
-}`,
-
-  "Quadcopter Arm": `// Quadcopter arming sequence
-// Throttle on pin 9 (PWM)
-// Armed LED on pin 13
-
-void setup() {
-  pinMode(9, OUTPUT);   // Throttle
-  pinMode(13, OUTPUT);  // Armed LED
-  Serial.begin(9600);
-  Serial.println("Quadcopter FC initialized");
-  Serial.println("Arming sequence...");
-  
-  // Arming: send min throttle
-  analogWrite(9, 0);
-  delay(2000);
-  
-  digitalWrite(13, HIGH);
-  Serial.println("ARMED - Ready to fly");
-}
-
-void loop() {
-  // Hover at 50% throttle
-  analogWrite(9, 128);
-  Serial.println("Throttle: 50%");
-  delay(5000);
-  
-  // Increase to 75%
-  analogWrite(9, 192);
-  Serial.println("Throttle: 75%");
-  delay(3000);
-  
-  // Back to hover
-  analogWrite(9, 128);
-  Serial.println("Throttle: 50%");
-  delay(5000);
-}`,
-};
-
-// ─── Flash status type ─────────────────────────────────────────
-
-type FlashStatus = "idle" | "compiling" | "flashing" | "done" | "error";
-
-// ─── CodeEditor component ──────────────────────────────────────
+const diagnostics = [
+  "Static timing checks on PWM outputs",
+  "Sensor dependency map validation",
+  "Cloud and edge topic schema inspection",
+  "Safety linting for actuator control loops",
+];
 
 export function CodeEditor() {
-  const code          = useSimulationStore((s) => s.firmwareCode);
-  const setCode       = useSimulationStore((s) => s.setFirmwareCode);
-  const showEditor    = useSimulationStore((s) => s.showCodeEditor);
-  const setShowEditor = useSimulationStore((s) => s.setShowCodeEditor);
-  const simState      = useSimulationStore((s) => s.simState);
-  const setSimState   = useSimulationStore((s) => s.setSimState);
-  const components    = useSimulationStore((s) => s.components);
-  const log           = useSimulationStore((s) => s.log);
+  const code = useSimulationStore((state) => state.firmwareCode);
+  const setCode = useSimulationStore((state) => state.setFirmwareCode);
+  const showEditor = useSimulationStore((state) => state.showCodeEditor);
+  const setShowEditor = useSimulationStore((state) => state.setShowCodeEditor);
+  const setSimState = useSimulationStore((state) => state.setSimState);
+  const components = useSimulationStore((state) => state.components);
+  const selectedComponent = useSimulationStore((state) => state.selectedComponent);
+  const log = useSimulationStore((state) => state.log);
+  const selectedCodeTarget = useSimulationStore((state) => state.selectedCodeTarget);
+  const setSelectedCodeTarget = useSimulationStore((state) => state.setSelectedCodeTarget);
+  const exportProjectDocument = useSimulationStore((state) => state.exportProjectDocument);
 
-  const textareaRef  = useRef<HTMLTextAreaElement>(null);
-  const lineCountRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [status, setStatus] = useState<FlashStatus>("idle");
+  const [statusMessage, setStatusMessage] = useState("Workspace synchronized");
 
-  const [flashStatus, setFlashStatus] = useState<FlashStatus>("idle");
-  const [flashMsg, setFlashMsg]       = useState("");
-  const [showTemplates, setShowTemplates] = useState(false);
-  const [showMcuPicker, setShowMcuPicker] = useState(false);
-  const [selectedMcuId, setSelectedMcuId] = useState<string | null>(null);
-  const [fileName, setFileName]       = useState("sketch.ino");
-  const [isDirty, setIsDirty]         = useState(false);
+  const selectedTypes = useMemo(() => {
+    const candidates = selectedComponent
+      ? components.filter((component) => component.id === selectedComponent)
+      : components;
+    return candidates.map((component) => component.type);
+  }, [components, selectedComponent]);
 
-  // Find all MCUs in scene
-  const mcusInScene = components.filter((c) => MCU_TYPES.has(c.type));
+  const availableTargets = useMemo(() => {
+    const matches = getCodeTargetsForComponentTypes(selectedTypes);
+    return matches.length > 0 ? matches : getCodeTargetsForComponentTypes(components.map((component) => component.type));
+  }, [components, selectedTypes]);
 
-  // Auto-select first MCU if none selected
+  const activeTarget = availableTargets.find((target) => target.id === selectedCodeTarget) ?? availableTargets[0];
+  const matchingProfiles = firmwareProfiles.filter((profile) =>
+    activeTarget?.label.toLowerCase().includes("arduino") ? profile.id === "fw.arduino.avr"
+    : activeTarget?.label.toLowerCase().includes("esp32") ? profile.id === "fw.esp32.freertos"
+    : activeTarget?.label.toLowerCase().includes("stm32") ? profile.id === "fw.stm32.control"
+    : activeTarget?.label.toLowerCase().includes("microcomputer") ? profile.id === "fw.rpi.edge"
+    : false,
+  );
+
   useEffect(() => {
-    if (!selectedMcuId && mcusInScene.length > 0) {
-      setSelectedMcuId(mcusInScene[0].id);
+    if (activeTarget && activeTarget.id !== selectedCodeTarget) {
+      setSelectedCodeTarget(activeTarget.id);
+      setCode(activeTarget.files[0]?.content ?? code);
     }
-  }, [mcusInScene.length]);
-
-  const activeMcu = mcusInScene.find((c) => c.id === selectedMcuId) ?? mcusInScene[0] ?? null;
-  const boardProfile = activeMcu ? BOARD_PROFILES[activeMcu.type] : null;
-
-  const lines = code.split("\n");
-
-  // ── Scroll sync ──
-  const handleScroll = () => {
-    if (textareaRef.current && lineCountRef.current) {
-      lineCountRef.current.scrollTop = textareaRef.current.scrollTop;
-    }
-  };
-
-  // ── Tab key support ──
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Tab") {
-      e.preventDefault();
-      const ta = textareaRef.current;
-      if (!ta) return;
-      const start = ta.selectionStart;
-      const end   = ta.selectionEnd;
-      const newCode = code.substring(0, start) + "  " + code.substring(end);
-      setCode(newCode);
-      setIsDirty(true);
-      requestAnimationFrame(() => {
-        if (ta) { ta.selectionStart = ta.selectionEnd = start + 2; }
-      });
-    }
-  };
-
-  // ── Flash & Run ──
-  const handleFlash = useCallback(() => {
-    if (!activeMcu) {
-      log("error", "No MCU in scene — add an Arduino, ESP32, or other microcontroller first");
-      return;
-    }
-
-    const board = boardProfile ?? BOARD_PROFILES["arduino-uno"];
-    const codeSize = new TextEncoder().encode(code).length;
-    const flashKB  = Math.round(codeSize / 1024 * 10) / 10;
-
-    setFlashStatus("compiling");
-    setFlashMsg("Compiling sketch...");
-    log("info", `Compiling for ${board.name} (${board.chip})`);
-
-    setTimeout(() => {
-      // Simulate compilation
-      const errors = validateSketch(code);
-      if (errors.length > 0) {
-        setFlashStatus("error");
-        setFlashMsg(`Compile error: ${errors[0]}`);
-        log("error", `Compile error: ${errors[0]}`);
-        setTimeout(() => setFlashStatus("idle"), 3000);
-        return;
-      }
-
-      log("success", `Compiled — ${codeSize} bytes (${flashKB} KB / ${board.flash} Flash)`);
-      setFlashStatus("flashing");
-      setFlashMsg(`Flashing to ${board.name}...`);
-      log("info", `Uploading via USB... baud: 115200`);
-
-      setTimeout(() => {
-        log("success", `Flash complete — firmware running on ${board.name}`);
-        log("info", `CPU: ${board.chip} @ ${board.freq} | RAM: ${board.sram} | Flash: ${board.flash}`);
-        setFlashStatus("done");
-        setFlashMsg("Flash complete!");
-        setIsDirty(false);
-        setSimState("running");
-
-        setTimeout(() => setFlashStatus("idle"), 2000);
-      }, 600);
-    }, 400);
-  }, [activeMcu, boardProfile, code, log, setSimState]);
-
-  // ── Upload .ino file ──
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    const ext = file.name.split(".").pop()?.toLowerCase();
-    if (!["ino", "cpp", "c", "txt"].includes(ext ?? "")) {
-      log("error", `Unsupported file type: .${ext} — use .ino, .cpp, or .c`);
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (ev) => {
-      const content = ev.target?.result as string;
-      setCode(content);
-      setFileName(file.name);
-      setIsDirty(false);
-      log("success", `Loaded: ${file.name} (${Math.round(content.length / 1024 * 10) / 10} KB)`);
-    };
-    reader.onerror = () => log("error", "Failed to read file");
-    reader.readAsText(file);
-
-    // Reset input
-    e.target.value = "";
-  };
-
-  // ── Save / Download ──
-  const handleSave = () => {
-    const blob = new Blob([code], { type: "text/plain" });
-    const url  = URL.createObjectURL(blob);
-    const a    = document.createElement("a");
-    a.href     = url;
-    a.download = fileName;
-    a.click();
-    URL.revokeObjectURL(url);
-    setIsDirty(false);
-    log("success", `Saved: ${fileName}`);
-  };
-
-  // ── Load template ──
-  const handleTemplate = (name: string) => {
-    setCode(CODE_TEMPLATES[name]);
-    setFileName(`${name.toLowerCase().replace(/\s+/g, "_")}.ino`);
-    setIsDirty(false);
-    setShowTemplates(false);
-    log("info", `Template loaded: ${name}`);
-  };
+  }, [activeTarget, code, selectedCodeTarget, setCode, setSelectedCodeTarget]);
 
   if (!showEditor) return null;
 
-  const flashIcon = () => {
-    switch (flashStatus) {
-      case "compiling": case "flashing": return <Loader2 className="w-3 h-3 animate-spin" />;
-      case "done":  return <CheckCircle2 className="w-3 h-3" />;
-      case "error": return <AlertCircle className="w-3 h-3" />;
-      default:      return <Upload className="w-3 h-3" />;
-    }
+  const activeComponent = components.find((component) => component.id === selectedComponent);
+
+  const handleLoadTemplate = (content: string, name: string) => {
+    setCode(content);
+    log("success", `Loaded ${name} into coding workspace`);
   };
 
-  const flashColor = () => {
-    switch (flashStatus) {
-      case "done":  return "bg-green-500/30 text-green-300 border-green-500/40";
-      case "error": return "bg-red-500/30 text-red-300 border-red-500/40";
-      case "compiling": case "flashing": return "bg-yellow-500/20 text-yellow-300 border-yellow-500/30";
-      default: return "bg-green-500/20 text-green-400 border-green-500/30 hover:bg-green-500/30";
-    }
+  const runPipeline = async () => {
+    setStatus("compiling");
+    setStatusMessage("Compiling target runtime and validating interfaces...");
+    log("info", `Compile started for ${activeTarget?.label ?? "selected target"}`);
+    await new Promise((resolve) => setTimeout(resolve, 800));
+    setStatus("deploying");
+    setStatusMessage("Deploying to simulation runtime and attaching traces...");
+    await new Promise((resolve) => setTimeout(resolve, 700));
+    setStatus("done");
+    setStatusMessage("Deployment complete. Runtime traces streaming.");
+    setSimState("running");
+    log("success", `Runtime attached to ${activeTarget?.label ?? "workspace target"}`);
+  };
+
+  const saveWorkspace = () => {
+    const projectDocument = exportProjectDocument();
+    const blob = new Blob([JSON.stringify(projectDocument, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "simforge-project.json";
+    anchor.click();
+    URL.revokeObjectURL(url);
+    log("success", "Exported normalized project document");
   };
 
   return (
-    <div className="absolute top-0 right-0 w-[520px] h-full z-20 flex flex-col bg-card border-l border-border shadow-2xl">
-
-      {/* ── Header ── */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-background/80">
-        <div className="flex items-center gap-2 min-w-0">
-          <FileCode className="w-4 h-4 text-primary flex-shrink-0" />
-          <span className="text-xs font-semibold text-foreground truncate max-w-[120px]">{fileName}</span>
-          {isDirty && <span className="text-[9px] text-yellow-400">●</span>}
-          <span className="text-[10px] text-muted-foreground font-mono">
-            {boardProfile ? `${boardProfile.chip}` : "No MCU"}
-          </span>
+    <div className="absolute inset-y-3 right-3 z-20 flex w-[min(760px,48vw)] flex-col overflow-hidden rounded-[28px] border border-white/10 bg-slate-950/90 shadow-[0_20px_80px_rgba(0,0,0,0.45)] backdrop-blur-xl">
+      <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.24em] text-slate-400">Advanced Runtime Workspace</p>
+          <h2 className="mt-1 font-mono text-xl font-semibold text-white">Multi-target coding environment</h2>
         </div>
-        <div className="flex items-center gap-1">
-          {/* Template picker */}
-          <div className="relative">
-            <button
-              onClick={() => { setShowTemplates((v) => !v); setShowMcuPicker(false); }}
-              className="flex items-center gap-1 px-2 py-1 text-[11px] rounded bg-secondary text-muted-foreground border border-border hover:text-foreground hover:border-primary/30 transition-colors"
-              title="Load template"
-            >
-              <FileCode className="w-3 h-3" />
-              <span className="hidden sm:inline">Templates</span>
-              <ChevronDown className="w-3 h-3" />
-            </button>
-            {showTemplates && (
-              <div className="absolute right-0 top-8 w-52 bg-card border border-border rounded-lg shadow-2xl z-30 overflow-hidden">
-                <div className="px-3 py-1.5 border-b border-border text-[9px] font-mono text-muted-foreground tracking-widest uppercase">
-                  Code Templates
-                </div>
-                {Object.keys(CODE_TEMPLATES).map((name) => (
-                  <button
-                    key={name}
-                    onClick={() => handleTemplate(name)}
-                    className="w-full text-left px-3 py-2 text-[11px] hover:bg-secondary transition-colors text-foreground"
-                  >
-                    {name}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {/* Upload file */}
-          <button
-            onClick={() => fileInputRef.current?.click()}
-            className="flex items-center gap-1 px-2 py-1 text-[11px] rounded bg-secondary text-muted-foreground border border-border hover:text-foreground hover:border-primary/30 transition-colors"
-            title="Upload .ino file"
-          >
-            <FolderOpen className="w-3 h-3" />
-          </button>
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept=".ino,.cpp,.c,.txt"
-            onChange={handleFileUpload}
-            className="hidden"
-          />
-
-          {/* Save */}
-          <button
-            onClick={handleSave}
-            className="flex items-center gap-1 px-2 py-1 text-[11px] rounded bg-secondary text-muted-foreground border border-border hover:text-foreground hover:border-primary/30 transition-colors"
-            title="Download sketch"
-          >
-            <Save className="w-3 h-3" />
-          </button>
-
-          {/* Flash & Run */}
-          <button
-            onClick={handleFlash}
-            disabled={simState === "running" || flashStatus === "compiling" || flashStatus === "flashing"}
-            className={`flex items-center gap-1 px-2 py-1 text-[11px] rounded border transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${flashColor()}`}
-            title={flashMsg || "Flash & Run"}
-          >
-            {flashIcon()}
-            <span>{flashStatus === "idle" ? "Flash & Run" : flashMsg.split(" ").slice(0,2).join(" ")}</span>
-          </button>
-
-          <button
-            onClick={() => setShowEditor(false)}
-            className="p-1 text-muted-foreground hover:text-foreground rounded hover:bg-secondary transition-colors ml-1"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-
-      {/* ── MCU Selector ── */}
-      <div className="flex items-center gap-2 px-3 py-1.5 border-b border-border bg-background/50">
-        <Cpu className="w-3 h-3 text-muted-foreground flex-shrink-0" />
-        <span className="text-[10px] text-muted-foreground font-mono">Target MCU:</span>
-        <div className="relative flex-1">
-          <button
-            onClick={() => { setShowMcuPicker((v) => !v); setShowTemplates(false); }}
-            className="flex items-center gap-1 text-[11px] text-foreground font-mono hover:text-primary transition-colors"
-          >
-            {activeMcu ? (
-              <>
-                <span
-                  className="w-2 h-2 rounded-full flex-shrink-0"
-                  style={{ background: boardProfile?.color ?? "#666" }}
-                />
-                <span>{activeMcu.name}</span>
-              </>
-            ) : (
-              <span className="text-muted-foreground italic">No MCU in scene</span>
-            )}
-            <ChevronDown className="w-3 h-3 text-muted-foreground" />
-          </button>
-          {showMcuPicker && mcusInScene.length > 0 && (
-            <div className="absolute left-0 top-6 w-64 bg-card border border-border rounded-lg shadow-2xl z-30 overflow-hidden">
-              <div className="px-3 py-1.5 border-b border-border text-[9px] font-mono text-muted-foreground tracking-widest uppercase">
-                MCUs in Scene
-              </div>
-              {mcusInScene.map((mcu) => {
-                const profile = BOARD_PROFILES[mcu.type];
-                return (
-                  <button
-                    key={mcu.id}
-                    onClick={() => { setSelectedMcuId(mcu.id); setShowMcuPicker(false); }}
-                    className={`w-full flex items-center gap-2 px-3 py-2 text-left text-[11px] transition-colors hover:bg-secondary ${
-                      mcu.id === selectedMcuId ? "bg-primary/10 text-primary" : "text-foreground"
-                    }`}
-                  >
-                    <span
-                      className="w-2 h-2 rounded-full flex-shrink-0"
-                      style={{ background: profile?.color ?? "#666" }}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="font-medium truncate">{mcu.name}</div>
-                      <div className="text-[9px] text-muted-foreground">{profile?.chip ?? mcu.type}</div>
-                    </div>
-                    {mcu.id === selectedMcuId && <span className="text-primary text-xs">✓</span>}
-                  </button>
-                );
-              })}
-            </div>
-          )}
-        </div>
-        {boardProfile && (
-          <div className="flex items-center gap-1.5 text-[9px] font-mono text-muted-foreground">
-            <Zap className="w-2.5 h-2.5" />
-            <span>{boardProfile.freq}</span>
-            <span className="text-border">|</span>
-            <span>{boardProfile.voltage}</span>
-          </div>
-        )}
-      </div>
-
-      {/* ── Editor area ── */}
-      <div className="flex-1 flex overflow-hidden relative">
-        {/* Line numbers */}
-        <div
-          ref={lineCountRef}
-          className="w-10 flex-shrink-0 overflow-hidden py-3 text-right pr-2 text-[11px] font-mono text-muted-foreground/40 leading-[1.6] select-none border-r border-border bg-background/50"
+        <button
+          onClick={() => setShowEditor(false)}
+          className="rounded-full border border-white/10 bg-white/5 p-2 text-slate-300 transition hover:bg-white/10 hover:text-white"
         >
-          {lines.map((_, i) => (
-            <div key={i}>{i + 1}</div>
-          ))}
-        </div>
-
-        {/* Code textarea */}
-        <textarea
-          ref={textareaRef}
-          value={code}
-          onChange={(e) => { setCode(e.target.value); setIsDirty(true); }}
-          onScroll={handleScroll}
-          onKeyDown={handleKeyDown}
-          spellCheck={false}
-          className="flex-1 resize-none p-3 text-[12px] font-mono leading-[1.6] bg-transparent text-foreground focus:outline-none overflow-auto"
-          style={{ tabSize: 2 }}
-          placeholder="// Write your Arduino sketch here..."
-        />
+          <X className="h-4 w-4" />
+        </button>
       </div>
 
-      {/* ── Status bar ── */}
-      <div className="flex items-center justify-between px-3 py-1.5 border-t border-border text-[10px] font-mono text-muted-foreground bg-background/80">
-        <div className="flex items-center gap-3">
-          <span>{lines.length} lines</span>
-          <span>{code.length} chars</span>
-          {isDirty && <span className="text-yellow-400">● unsaved</span>}
-        </div>
-        {boardProfile ? (
-          <div className="flex items-center gap-2">
-            <span
-              className="px-1.5 py-0.5 rounded text-[9px] font-bold"
-              style={{ background: boardProfile.color + "33", color: boardProfile.color }}
-            >
-              {boardProfile.name}
-            </span>
-            <span>{boardProfile.flash} Flash</span>
-            <span>{boardProfile.sram} SRAM</span>
+      <div className="grid flex-1 overflow-hidden lg:grid-cols-[240px_1fr]">
+        <aside className="border-r border-white/10 bg-white/[0.03] p-4">
+          <div className="rounded-2xl border border-emerald-400/15 bg-emerald-400/10 p-4">
+            <p className="text-[10px] uppercase tracking-[0.2em] text-emerald-100/70">Attached Asset</p>
+            <p className="mt-2 text-sm font-semibold text-white">{activeComponent?.name ?? "Project Workspace"}</p>
+            <p className="mt-1 text-xs leading-5 text-emerald-50/80">
+              {activeComponent ? `${activeComponent.type} selected in the scene` : "Select a board, robot, or connected device to scope the workspace."}
+            </p>
           </div>
-        ) : (
-          <span className="text-muted-foreground/50 italic">No MCU selected</span>
-        )}
-      </div>
 
-      {/* ── Pin reference panel (collapsible) ── */}
-      {boardProfile && activeMcu && (
-        <div className="border-t border-border bg-background/60 px-3 py-2">
-          <div className="text-[9px] font-mono text-muted-foreground/60 uppercase tracking-widest mb-1">
-            PWM Pins: {boardProfile.pwmPins.join(", ")} • Analog: A0–A{boardProfile.analogPins - 1} • Digital: D0–D{boardProfile.digitalPins - 1}
+          <div className="mt-4">
+            <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Targets</p>
+            <div className="mt-2 space-y-2">
+              {availableTargets.map((target) => (
+                <button
+                  key={target.id}
+                  onClick={() => {
+                    setSelectedCodeTarget(target.id);
+                    setCode(target.files[0]?.content ?? code);
+                  }}
+                  className={`w-full rounded-2xl border p-3 text-left transition ${
+                    target.id === activeTarget?.id
+                      ? "border-cyan-400/30 bg-cyan-400/15"
+                      : "border-white/10 bg-white/[0.02] hover:bg-white/[0.05]"
+                  }`}
+                >
+                  <div className="flex items-center gap-2 text-white">
+                    {target.runtime.includes("ROS") ? <Bot className="h-4 w-4 text-cyan-200" /> : target.runtime.includes("MQTT") ? <Network className="h-4 w-4 text-cyan-200" /> : <Cpu className="h-4 w-4 text-cyan-200" />}
+                    <span className="text-sm font-semibold">{target.label}</span>
+                  </div>
+                  <p className="mt-1 text-[11px] text-slate-300">{target.runtime}</p>
+                  <p className="mt-1 text-[10px] uppercase tracking-[0.18em] text-slate-500">{target.chipFamily}</p>
+                </button>
+              ))}
+            </div>
           </div>
-        </div>
-      )}
+
+          <div className="mt-4">
+            <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Files</p>
+            <div className="mt-2 space-y-2">
+              {activeTarget?.files.map((file) => (
+                <button
+                  key={file.name}
+                  onClick={() => handleLoadTemplate(file.content, file.name)}
+                  className="flex w-full items-center gap-2 rounded-xl border border-white/10 bg-slate-900/70 px-3 py-2 text-left transition hover:bg-slate-900"
+                >
+                  <Code2 className="h-4 w-4 text-emerald-200" />
+                  <div>
+                    <p className="text-xs font-medium text-white">{file.name}</p>
+                    <p className="text-[10px] uppercase tracking-[0.18em] text-slate-500">{file.language}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
+        </aside>
+
+        <section className="flex min-h-0 flex-col">
+          <div className="grid gap-3 border-b border-white/10 px-4 py-3 xl:grid-cols-[1fr_auto_auto]">
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Runtime Profile</p>
+              <p className="mt-1 text-sm font-semibold text-white">{activeTarget?.label ?? "No target available"}</p>
+              <p className="mt-1 text-xs text-slate-300">{activeTarget?.features.join(" • ")}</p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3">
+              <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Pipeline State</p>
+              <p className={`mt-1 text-sm font-semibold ${statusColor[status]}`}>{status}</p>
+              <p className="mt-1 text-xs text-slate-300">{statusMessage}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={saveWorkspace}
+                className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.05] px-4 py-2 text-xs font-semibold text-white transition hover:bg-white/[0.08]"
+              >
+                <Save className="h-3.5 w-3.5" />
+                Export Project
+              </button>
+              <button
+                onClick={() => void runPipeline()}
+                className="inline-flex items-center gap-2 rounded-full bg-emerald-400 px-4 py-2 text-xs font-semibold text-slate-950 transition hover:bg-emerald-300"
+              >
+                {status === "compiling" || status === "deploying" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Play className="h-3.5 w-3.5" />}
+                Build & Attach
+              </button>
+            </div>
+          </div>
+
+          <div className="grid min-h-0 flex-1 lg:grid-cols-[1fr_220px]">
+            <div className="flex min-h-0 flex-col border-r border-white/10">
+              <div className="flex items-center justify-between border-b border-white/10 px-4 py-2 text-[11px] text-slate-400">
+                <div className="flex items-center gap-2">
+                  <TerminalSquare className="h-3.5 w-3.5" />
+                  <span>{activeTarget?.language ?? "code"}</span>
+                </div>
+                <span>{code.split("\n").length} lines</span>
+              </div>
+              <textarea
+                value={code}
+                onChange={(event) => setCode(event.target.value)}
+                spellCheck={false}
+                className="min-h-0 flex-1 resize-none bg-[#06111a] px-4 py-4 font-mono text-[13px] leading-6 text-slate-100 outline-none"
+              />
+            </div>
+
+            <div className="overflow-y-auto p-4">
+              <div className="rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Diagnostics</p>
+                <div className="mt-3 space-y-2">
+                  {diagnostics.map((item, index) => (
+                    <div key={item} className="flex items-start gap-2 rounded-xl border border-white/5 bg-slate-900/70 px-3 py-2">
+                      {index % 2 === 0 ? (
+                        <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-300" />
+                      ) : (
+                        <AlertCircle className="mt-0.5 h-4 w-4 text-amber-300" />
+                      )}
+                      <div>
+                        <p className="text-xs font-medium text-white">{item}</p>
+                        <p className="mt-1 text-[11px] leading-5 text-slate-400">
+                          {index % 2 === 0 ? "Ready for simulation execution." : "Monitoring for target-specific issues during deployment."}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Interfaces</p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {activeTarget?.features.map((feature) => (
+                    <span key={feature} className="rounded-full border border-cyan-300/15 bg-cyan-400/10 px-3 py-1 text-[10px] text-cyan-50">
+                      {feature}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.04] p-4">
+                <p className="text-[10px] uppercase tracking-[0.2em] text-slate-400">Firmware Profiles</p>
+                <div className="mt-3 space-y-2">
+                  {matchingProfiles.map((profile) => (
+                    <div key={profile.id} className="rounded-xl border border-white/5 bg-slate-900/70 px-3 py-3">
+                      <p className="text-xs font-semibold text-white">{profile.board}</p>
+                      <p className="mt-1 text-[11px] text-slate-400">{profile.runtime}</p>
+                      <p className="mt-1 text-[11px] text-slate-500">{profile.toolchain}</p>
+                    </div>
+                  ))}
+                  {matchingProfiles.length === 0 && (
+                    <p className="text-[11px] leading-5 text-slate-400">No direct firmware profile mapped to the active target yet.</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
     </div>
   );
-}
-
-// ─── Sketch validator ──────────────────────────────────────────
-
-function validateSketch(code: string): string[] {
-  const errors: string[] = [];
-  const clean = code.replace(/\/\/.*$/gm, "").replace(/\/\*[\s\S]*?\*\//g, "");
-
-  if (!clean.includes("void setup")) {
-    errors.push("Missing void setup() function");
-  }
-  if (!clean.includes("void loop")) {
-    errors.push("Missing void loop() function");
-  }
-
-  // Check for balanced braces
-  let depth = 0;
-  for (const ch of clean) {
-    if (ch === "{") depth++;
-    if (ch === "}") depth--;
-    if (depth < 0) { errors.push("Unexpected '}'"); break; }
-  }
-  if (depth > 0) errors.push("Missing closing '}'");
-
-  return errors;
 }
